@@ -1487,10 +1487,12 @@ body {
   height: 100px;
   margin: 0 auto 16px;
   opacity: 0.6;
+  display: block;
+  object-fit: contain;
 }
 
 /* ===== Mascot Character ===== */
-.mascot { display: inline-block; vertical-align: middle; }
+.mascot { display: inline-block; vertical-align: middle; object-fit: contain; }
 .mascot-header {
   width: 48px;
   height: 48px;
@@ -1502,16 +1504,52 @@ body {
   25% { transform: rotate(5deg); }
   75% { transform: rotate(-5deg); }
 }
+.mascot-challenge-wrap {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 4px;
+}
 .mascot-challenge {
   width: 64px;
   height: 64px;
-  margin-bottom: 4px;
+}
+.mascot-speech {
+  position: absolute;
+  top: -4px;
+  right: -60px;
+  background: #fff;
+  color: var(--on-surface);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+.mascot-speech::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 12px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #fff;
+}
+.mascot-result-wrap {
+  position: relative;
+  display: inline-block;
+  margin: 8px auto;
 }
 .mascot-result {
   width: 72px;
   height: 72px;
-  margin: 8px auto;
   display: block;
+}
+.mascot-result-speech {
+  top: -8px;
+  right: -56px;
 }
 .mascot-result-bounce {
   animation: mascotBounce 0.8s ease-in-out infinite alternate;
@@ -1531,6 +1569,7 @@ body {
   .btn-record { width: 72px; height: 72px; }
   .btn-record::after { width: 28px; height: 28px; }
   .mascot-challenge { width: 48px; height: 48px; }
+  .mascot-speech { font-size: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1547,40 +1586,7 @@ body {
 
 <!-- ===== SPLASH SCREEN ===== -->
 <div class="splash-screen" id="splash-screen">
-  <svg class="splash-mascot" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-    <!-- Body -->
-    <ellipse cx="100" cy="120" rx="52" ry="56" fill="#FFB84D"/>
-    <ellipse cx="100" cy="120" rx="44" ry="48" fill="#FFCC66"/>
-    <!-- Belly -->
-    <ellipse cx="100" cy="132" rx="30" ry="28" fill="#FFF3D6"/>
-    <!-- Eyes -->
-    <circle cx="82" cy="100" r="14" fill="#fff"/>
-    <circle cx="118" cy="100" r="14" fill="#fff"/>
-    <circle cx="85" cy="99" r="7" fill="#1A1A1B"/>
-    <circle cx="121" cy="99" r="7" fill="#1A1A1B"/>
-    <circle cx="87" cy="97" r="2.5" fill="#fff"/>
-    <circle cx="123" cy="97" r="2.5" fill="#fff"/>
-    <!-- Beak -->
-    <path d="M93 110 L100 118 L107 110 Z" fill="#E94F64"/>
-    <!-- Wings -->
-    <ellipse cx="56" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(-15,56,126)"/>
-    <ellipse cx="144" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(15,144,126)"/>
-    <!-- Headphone band -->
-    <path d="M60 88 Q100 50 140 88" fill="none" stroke="#414753" stroke-width="6" stroke-linecap="round"/>
-    <!-- Headphone pads -->
-    <rect x="48" y="82" width="20" height="28" rx="8" fill="#414753"/>
-    <rect x="132" y="82" width="20" height="28" rx="8" fill="#414753"/>
-    <rect x="51" y="86" width="14" height="20" rx="5" fill="#5A5A5A"/>
-    <rect x="135" y="86" width="14" height="20" rx="5" fill="#5A5A5A"/>
-    <!-- Mic arm -->
-    <path d="M52 104 Q44 120 50 134" fill="none" stroke="#414753" stroke-width="3" stroke-linecap="round"/>
-    <!-- Mic -->
-    <circle cx="50" cy="136" r="6" fill="#E94F64"/>
-    <rect x="47" y="134" width="6" height="4" rx="2" fill="#C33A4E"/>
-    <!-- Feet -->
-    <ellipse cx="84" cy="174" rx="14" ry="6" fill="#D9952A"/>
-    <ellipse cx="116" cy="174" rx="14" ry="6" fill="#D9952A"/>
-  </svg>
+  <img class="splash-mascot" src="./mascot.png" alt="早口言葉チャレンジ マスコット">
   <div class="splash-title">早口言葉チャレンジ</div>
   <div class="splash-subtitle">ボイストレーナーが作ったトレーニング</div>
 </div>
@@ -1588,17 +1594,7 @@ body {
 <!-- ===== TOP SCREEN ===== -->
 <div id="screen-top" class="screen active">
   <div class="top-header">
-    <svg class="mascot mascot-header" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="100" cy="120" rx="52" ry="56" fill="#FFB84D"/><ellipse cx="100" cy="120" rx="44" ry="48" fill="#FFCC66"/><ellipse cx="100" cy="132" rx="30" ry="28" fill="#FFF3D6"/>
-      <circle cx="82" cy="100" r="14" fill="#fff"/><circle cx="118" cy="100" r="14" fill="#fff"/><circle cx="85" cy="99" r="7" fill="#1A1A1B"/><circle cx="121" cy="99" r="7" fill="#1A1A1B"/><circle cx="87" cy="97" r="2.5" fill="#fff"/><circle cx="123" cy="97" r="2.5" fill="#fff"/>
-      <path d="M93 110 L100 118 L107 110 Z" fill="#E94F64"/>
-      <ellipse cx="56" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(-15,56,126)"/><ellipse cx="144" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(15,144,126)"/>
-      <path d="M60 88 Q100 50 140 88" fill="none" stroke="#414753" stroke-width="6" stroke-linecap="round"/><rect x="48" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="132" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="51" y="86" width="14" height="20" rx="5" fill="#5A5A5A"/><rect x="135" y="86" width="14" height="20" rx="5" fill="#5A5A5A"/>
-      <path d="M52 104 Q44 120 50 134" fill="none" stroke="#414753" stroke-width="3" stroke-linecap="round"/><circle cx="50" cy="136" r="6" fill="#E94F64"/><rect x="47" y="134" width="6" height="4" rx="2" fill="#C33A4E"/>
-      <!-- Waving wing (right wing raised) -->
-      <ellipse cx="148" cy="118" rx="18" ry="30" fill="#2F80ED" transform="rotate(30,148,118)"/>
-      <ellipse cx="84" cy="174" rx="14" ry="6" fill="#D9952A"/><ellipse cx="116" cy="174" rx="14" ry="6" fill="#D9952A"/>
-    </svg>
+    <img class="mascot mascot-header" src="./mascot.png" alt="マスコット">
     <h1>早口言葉チャレンジ</h1>
     <p class="top-tagline">声に出して読もう！何点とれるかな？</p>
     <div class="today-badge" id="today-badge">
@@ -1667,19 +1663,10 @@ body {
     </div>
     <button class="btn-record" id="btn-record" aria-label="録音"></button>
     <p class="record-hint" id="record-hint">タップして録音開始</p>
-    <svg class="mascot mascot-challenge" id="mascot-challenge" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="100" cy="120" rx="52" ry="56" fill="#FFB84D"/><ellipse cx="100" cy="120" rx="44" ry="48" fill="#FFCC66"/><ellipse cx="100" cy="132" rx="30" ry="28" fill="#FFF3D6"/>
-      <circle cx="82" cy="100" r="14" fill="#fff"/><circle cx="118" cy="100" r="14" fill="#fff"/><circle cx="85" cy="99" r="7" fill="#1A1A1B"/><circle cx="121" cy="99" r="7" fill="#1A1A1B"/><circle cx="87" cy="97" r="2.5" fill="#fff"/><circle cx="123" cy="97" r="2.5" fill="#fff"/>
-      <path d="M93 110 L100 118 L107 110 Z" fill="#E94F64"/>
-      <ellipse cx="56" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(-15,56,126)"/><ellipse cx="144" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(15,144,126)"/>
-      <path d="M60 88 Q100 50 140 88" fill="none" stroke="#414753" stroke-width="6" stroke-linecap="round"/><rect x="48" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="132" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="51" y="86" width="14" height="20" rx="5" fill="#5A5A5A"/><rect x="135" y="86" width="14" height="20" rx="5" fill="#5A5A5A"/>
-      <path d="M52 104 Q44 120 50 134" fill="none" stroke="#414753" stroke-width="3" stroke-linecap="round"/><circle cx="50" cy="136" r="6" fill="#E94F64"/><rect x="47" y="134" width="6" height="4" rx="2" fill="#C33A4E"/>
-      <ellipse cx="84" cy="174" rx="14" ry="6" fill="#D9952A"/><ellipse cx="116" cy="174" rx="14" ry="6" fill="#D9952A"/>
-      <!-- Speech bubble: やってみよう！ -->
-      <rect x="120" y="50" width="72" height="28" rx="12" fill="#fff" opacity="0.9"/>
-      <polygon points="124,72 132,78 136,72" fill="#fff" opacity="0.9"/>
-      <text x="156" y="68" text-anchor="middle" font-size="11" font-weight="700" fill="#1A1A1B">やってみよう！</text>
-    </svg>
+    <div class="mascot-challenge-wrap">
+      <img class="mascot mascot-challenge" id="mascot-challenge" src="./mascot.png" alt="マスコット">
+      <span class="mascot-speech">やってみよう！</span>
+    </div>
   </div>
 </div>
 
@@ -1693,8 +1680,11 @@ body {
     </div>
     <div class="result-rank" id="result-rank"></div>
     <div class="result-specials" id="result-specials"></div>
-    <!-- Mascot reacts to score (swapped by JS) -->
-    <svg class="mascot mascot-result mascot-result-bounce" id="mascot-result" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"></svg>
+    <!-- Mascot reacts to score (speech changed by JS) -->
+    <div class="mascot-result-wrap" id="mascot-result-wrap">
+      <img class="mascot mascot-result mascot-result-bounce" id="mascot-result" src="./mascot.png" alt="マスコット">
+      <span class="mascot-speech mascot-result-speech" id="mascot-result-speech"></span>
+    </div>
   </div>
   <div class="result-body">
     <div class="radar-wrap">
@@ -2097,15 +2087,7 @@ function renderHistoryScreen() {
   if (entries.length === 0) {
     listEl.innerHTML = `
       <div class="history-empty">
-        <svg class="history-empty-mascot" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="100" cy="120" rx="52" ry="56" fill="#FFB84D"/><ellipse cx="100" cy="120" rx="44" ry="48" fill="#FFCC66"/><ellipse cx="100" cy="132" rx="30" ry="28" fill="#FFF3D6"/>
-          <circle cx="82" cy="100" r="14" fill="#fff"/><circle cx="118" cy="100" r="14" fill="#fff"/><circle cx="85" cy="99" r="7" fill="#1A1A1B"/><circle cx="121" cy="99" r="7" fill="#1A1A1B"/><circle cx="87" cy="97" r="2.5" fill="#fff"/><circle cx="123" cy="97" r="2.5" fill="#fff"/>
-          <path d="M93 110 L100 118 L107 110 Z" fill="#E94F64"/>
-          <ellipse cx="56" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(-15,56,126)"/><ellipse cx="144" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(15,144,126)"/>
-          <path d="M60 88 Q100 50 140 88" fill="none" stroke="#414753" stroke-width="6" stroke-linecap="round"/><rect x="48" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="132" y="82" width="20" height="28" rx="8" fill="#414753"/>
-          <!-- Question marks -->
-          <text x="100" y="70" text-anchor="middle" font-size="24" fill="#D9952A">？</text>
-        </svg>
+        <img class="history-empty-mascot" src="./mascot.png" alt="マスコット">
         まだ記録がありません<br>チャレンジしてみよう！
       </div>
     `;
@@ -2128,41 +2110,17 @@ function renderHistoryScreen() {
   }).join('');
 }
 
-// ===== Result Mascot (changes based on score) =====
+// ===== Result Mascot (changes speech based on score) =====
 function updateResultMascot(score) {
-  const el = document.getElementById('mascot-result');
-  if (score >= 75) {
-    // Happy / celebrating
-    el.innerHTML = `
-      <ellipse cx="100" cy="120" rx="52" ry="56" fill="#FFB84D"/><ellipse cx="100" cy="120" rx="44" ry="48" fill="#FFCC66"/><ellipse cx="100" cy="132" rx="30" ry="28" fill="#FFF3D6"/>
-      <circle cx="82" cy="100" r="14" fill="#fff"/><circle cx="118" cy="100" r="14" fill="#fff"/>
-      <circle cx="85" cy="99" r="7" fill="#1A1A1B"/><circle cx="121" cy="99" r="7" fill="#1A1A1B"/>
-      <circle cx="87" cy="97" r="2.5" fill="#fff"/><circle cx="123" cy="97" r="2.5" fill="#fff"/>
-      <path d="M88 114 Q100 124 112 114" fill="none" stroke="#E94F64" stroke-width="3" stroke-linecap="round"/>
-      <ellipse cx="56" cy="110" rx="18" ry="30" fill="#2F80ED" transform="rotate(-40,56,110)"/>
-      <ellipse cx="144" cy="110" rx="18" ry="30" fill="#2F80ED" transform="rotate(40,144,110)"/>
-      <path d="M60 88 Q100 50 140 88" fill="none" stroke="#414753" stroke-width="6" stroke-linecap="round"/>
-      <rect x="48" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="132" y="82" width="20" height="28" rx="8" fill="#414753"/>
-      <text x="100" y="56" text-anchor="middle" font-size="20">🎉</text>
-      <ellipse cx="84" cy="174" rx="14" ry="6" fill="#D9952A"/><ellipse cx="116" cy="174" rx="14" ry="6" fill="#D9952A"/>
-    `;
+  const speechEl = document.getElementById('mascot-result-speech');
+  if (score >= 90) {
+    speechEl.textContent = '天才！🎉';
+  } else if (score >= 75) {
+    speechEl.textContent = 'すごい！';
+  } else if (score >= 60) {
+    speechEl.textContent = 'いい感じ！';
   } else {
-    // Encouraging / cheering
-    el.innerHTML = `
-      <ellipse cx="100" cy="120" rx="52" ry="56" fill="#FFB84D"/><ellipse cx="100" cy="120" rx="44" ry="48" fill="#FFCC66"/><ellipse cx="100" cy="132" rx="30" ry="28" fill="#FFF3D6"/>
-      <circle cx="82" cy="100" r="14" fill="#fff"/><circle cx="118" cy="100" r="14" fill="#fff"/>
-      <circle cx="85" cy="99" r="7" fill="#1A1A1B"/><circle cx="121" cy="99" r="7" fill="#1A1A1B"/>
-      <circle cx="87" cy="97" r="2.5" fill="#fff"/><circle cx="123" cy="97" r="2.5" fill="#fff"/>
-      <path d="M93 112 L100 118 L107 112 Z" fill="#E94F64"/>
-      <ellipse cx="56" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(-15,56,126)"/>
-      <ellipse cx="148" cy="116" rx="18" ry="30" fill="#2F80ED" transform="rotate(35,148,116)"/>
-      <path d="M60 88 Q100 50 140 88" fill="none" stroke="#414753" stroke-width="6" stroke-linecap="round"/>
-      <rect x="48" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="132" y="82" width="20" height="28" rx="8" fill="#414753"/>
-      <rect x="130" y="60" width="62" height="24" rx="10" fill="#fff" opacity="0.85"/>
-      <polygon points="136,78 142,84 148,78" fill="#fff" opacity="0.85"/>
-      <text x="161" y="76" text-anchor="middle" font-size="10" font-weight="700" fill="#1A1A1B">もう1回！</text>
-      <ellipse cx="84" cy="174" rx="14" ry="6" fill="#D9952A"/><ellipse cx="116" cy="174" rx="14" ry="6" fill="#D9952A"/>
-    `;
+    speechEl.textContent = 'もう1回！';
   }
 }
 

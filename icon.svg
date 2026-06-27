@@ -1,17 +1,103 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FFB84D"/>
-      <stop offset="100%" stop-color="#FFCC66"/>
+      <stop offset="0%" stop-color="#2F80ED"/>
+      <stop offset="100%" stop-color="#1A5BC4"/>
     </linearGradient>
   </defs>
+  <!-- Background -->
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <!-- Microphone -->
-  <rect x="224" y="140" width="64" height="120" rx="32" fill="#fff"/>
-  <path d="M192 240v20c0 35.3 28.7 64 64 64s64-28.7 64-64v-20" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
-  <line x1="256" y1="324" x2="256" y2="370" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
-  <line x1="220" y1="370" x2="292" y2="370" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
-  <!-- Accent circles -->
-  <circle cx="410" cy="102" r="36" fill="#2F80ED" opacity="0.9"/>
-  <circle cx="102" cy="410" r="24" fill="#E94F64" opacity="0.7"/>
+
+  <!-- === Parrot mascot === -->
+  <g transform="translate(256,270)">
+    <!-- Shadow -->
+    <ellipse cx="0" cy="155" rx="75" ry="12" fill="#1A4DA0" opacity="0.25"/>
+
+    <!-- Tail feathers -->
+    <path d="M-20 100 Q-50 140 -65 170" stroke="#5A9CF5" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <path d="M-5 105 Q-30 150 -40 175" stroke="#2F80ED" stroke-width="9" fill="none" stroke-linecap="round"/>
+    <path d="M10 108 Q-10 155 -15 178" stroke="#74B3F7" stroke-width="8" fill="none" stroke-linecap="round"/>
+
+    <!-- Left wing (spread open) -->
+    <g transform="rotate(15, -75, 20)">
+      <ellipse cx="-95" cy="15" rx="55" ry="28" fill="#5A9CF5"/>
+      <ellipse cx="-85" cy="8" rx="40" ry="20" fill="#74B3F7"/>
+      <!-- Wing feather tips -->
+      <path d="M-140 0 Q-155 -8 -150 5" stroke="#2F80ED" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path d="M-145 12 Q-162 8 -155 18" stroke="#2F80ED" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path d="M-142 25 Q-158 24 -152 32" stroke="#2F80ED" stroke-width="4" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Right wing (tucked) -->
+    <ellipse cx="65" cy="20" rx="30" ry="45" fill="#5A9CF5" transform="rotate(10,65,20)"/>
+    <ellipse cx="62" cy="15" rx="22" ry="35" fill="#74B3F7" transform="rotate(10,62,15)"/>
+
+    <!-- Body -->
+    <ellipse cx="0" cy="30" rx="72" ry="82" fill="#FFB84D"/>
+    <ellipse cx="0" cy="30" rx="62" ry="72" fill="#FFCC66"/>
+    <!-- Belly (scallop pattern) -->
+    <ellipse cx="0" cy="52" rx="44" ry="40" fill="#FFF3D6"/>
+    <!-- Belly scallop lines -->
+    <path d="M-30 40 Q-15 48 0 40 Q15 48 30 40" fill="none" stroke="#FFE4B0" stroke-width="2"/>
+    <path d="M-26 52 Q-13 58 0 52 Q13 58 26 52" fill="none" stroke="#FFE4B0" stroke-width="2"/>
+
+    <!-- Headphone band -->
+    <path d="M-52 -42 Q0 -90 52 -42" fill="none" stroke="#2F80ED" stroke-width="9" stroke-linecap="round"/>
+
+    <!-- Crest feathers (on top, through headphone band) -->
+    <path d="M5 -65 Q12 -95 8 -110" stroke="#3BB54A" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M5 -65 Q20 -90 25 -105" stroke="#5A9CF5" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M5 -65 Q-5 -88 -8 -100" stroke="#74B3F7" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <!-- Crest tips -->
+    <circle cx="8" cy="-112" r="5" fill="#3BB54A"/>
+    <circle cx="25" cy="-107" r="4" fill="#5A9CF5"/>
+    <circle cx="-8" cy="-102" r="4" fill="#74B3F7"/>
+
+    <!-- Headphone pads -->
+    <rect x="-66" y="-50" width="24" height="36" rx="10" fill="#2F80ED"/>
+    <rect x="42" y="-50" width="24" height="36" rx="10" fill="#2F80ED"/>
+    <rect x="-62" y="-44" width="16" height="24" rx="7" fill="#5A9CF5"/>
+    <rect x="46" y="-44" width="16" height="24" rx="7" fill="#5A9CF5"/>
+
+    <!-- Mic arm (from left headphone) -->
+    <path d="M-50 -22 Q-60 5 -50 22" fill="none" stroke="#2F80ED" stroke-width="4" stroke-linecap="round"/>
+    <!-- Mic head -->
+    <circle cx="-48" cy="24" r="8" fill="#E94F64"/>
+    <rect x="-53" y="21" width="8" height="5" rx="2" fill="#C33A4E"/>
+
+    <!-- Face/head area -->
+    <!-- Eyes -->
+    <circle cx="-22" cy="-18" r="20" fill="#fff"/>
+    <circle cx="22" cy="-18" r="16" fill="#fff"/>
+    <!-- Iris -->
+    <circle cx="-18" cy="-17" r="12" fill="#8B5E3C"/>
+    <circle cx="25" cy="-17" r="9" fill="#8B5E3C"/>
+    <!-- Pupil -->
+    <circle cx="-16" cy="-19" r="6" fill="#1A1A1B"/>
+    <circle cx="26" cy="-19" r="5" fill="#1A1A1B"/>
+    <!-- Eye highlight -->
+    <circle cx="-13" cy="-22" r="3.5" fill="#fff"/>
+    <circle cx="28" cy="-22" r="2.5" fill="#fff"/>
+
+    <!-- Parrot beak (large, curved, open — talking!) -->
+    <!-- Upper beak -->
+    <path d="M10 -4 Q28 -14 42 -6 Q48 0 44 6 Q36 4 24 6 Q14 6 10 -4 Z" fill="#D9952A"/>
+    <path d="M14 -2 Q28 -10 38 -4 Q42 0 38 4 Q32 2 24 4 Q16 4 14 -2 Z" fill="#E8A940"/>
+    <!-- Lower beak (open) -->
+    <path d="M12 6 Q26 20 42 8" fill="#C4872A" stroke="#B87820" stroke-width="1"/>
+
+    <!-- Tongue -->
+    <ellipse cx="28" cy="12" rx="5" ry="3" fill="#E94F64"/>
+
+    <!-- Cheek blush -->
+    <ellipse cx="-30" cy="0" rx="10" ry="7" fill="#FFB84D" opacity="0.5"/>
+
+    <!-- Feet -->
+    <g transform="translate(-20, 108)">
+      <path d="M0 0 L-8 14 M0 0 L0 16 M0 0 L8 14" stroke="#D9952A" stroke-width="5" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(20, 108)">
+      <path d="M0 0 L-8 14 M0 0 L0 16 M0 0 L8 14" stroke="#D9952A" stroke-width="5" stroke-linecap="round"/>
+    </g>
+  </g>
 </svg>

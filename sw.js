@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hayakuchi-v11';
+const CACHE_NAME = 'hayakuchi-v12';
 const ASSETS = [
   './index.html',
   './早口言葉データ.json',
@@ -6,6 +6,7 @@ const ASSETS = [
   './icon.svg',
   './icon-192.png',
   './icon-512.png',
+  './mascot.png',
 ];
 
 self.addEventListener('install', (e) => {
