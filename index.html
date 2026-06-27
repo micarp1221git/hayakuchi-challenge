@@ -1,0 +1,3963 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<script>
+// 一度だけ全キャッシュをクリアして再読み込み（完了後このブロックは削除してOK）
+if (!sessionStorage.getItem('cache_cleared')) {
+  sessionStorage.setItem('cache_cleared', '1');
+  caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      Promise.all(regs.map(r => r.unregister())).then(() => location.reload());
+    });
+  });
+}
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>早口言葉チャレンジ</title>
+<meta name="description" content="ボイストレーナーが作った、毎日1つの早口言葉チャレンジ">
+<meta name="theme-color" content="#FFB84D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="早口言葉">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ===== Design Tokens (Vivid Journey — Parrot Theme: Orange Main) ===== */
+:root {
+  --primary: #FFB84D;
+  --primary-dark: #D9952A;
+  --primary-container: #FFCC66;
+  --on-primary: #1A1A1B;
+  --on-primary-alt: #704800;
+  --secondary: #2F80ED;
+  --secondary-dark: #1A5BB8;
+  --secondary-container: #5A9CF5;
+  --on-secondary: #fff;
+  --on-secondary-container: #0A2E5C;
+  --tertiary: #E94F64;
+  --tertiary-dark: #C33A4E;
+  --tertiary-container: #F06B7E;
+  --on-tertiary: #fff;
+  --background: #FFFBF5;
+  --surface: #FFFFFF;
+  --error: #E94F64;
+  --on-surface: #191C1E;
+  --on-surface-variant: #414753;
+  --outline: #727785;
+  --outline-variant: #D5CCBB;
+  --surface-container-low: #FFF8F0;
+  --shadow-sm: 0 1px 3px rgba(217,149,42,0.10);
+  --shadow-md: 0 2px 12px rgba(217,149,42,0.12);
+  --shadow-lg: 0 4px 16px rgba(217,149,42,0.15);
+  --shadow-xl: 0 8px 24px rgba(217,149,42,0.18);
+  /* 3D Button extrusion */
+  --btn-extrude: 4px;
+  --space-xs: 4px;
+  --space-sm: 12px;
+  --space-base: 8px;
+  --space-md: 24px;
+  --space-lg: 40px;
+  --space-xl: 64px;
+  --rounded-sm: 4px;
+  --rounded: 8px;
+  --rounded-md: 12px;
+  --rounded-lg: 16px;
+  --rounded-xl: 24px;
+}
+
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans JP', sans-serif;
+  background: var(--background);
+  color: var(--on-surface);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== Screen Management ===== */
+.screen {
+  display: none;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 0 0 env(safe-area-inset-bottom, 0);
+  animation: fadeIn 0.3s ease;
+}
+.screen.active { display: flex; flex-direction: column; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ===== Top Screen ===== */
+.top-header {
+  background: linear-gradient(135deg, var(--primary), var(--primary-container));
+  color: var(--on-primary);
+  padding: 48px 20px 28px;
+  text-align: center;
+}
+.top-header h1 { font-size: 22px; font-weight: 800; letter-spacing: 1px; }
+.top-tagline { font-size: 13px; opacity: 0.9; margin-top: 6px; line-height: 1.5; }
+.streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--secondary);
+  color: var(--on-secondary);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 12px;
+  border-bottom: 3px solid var(--secondary-dark);
+}
+.top-body { flex: 1; padding: 20px; padding-bottom: 80px; }
+
+/* Difficulty Filter — kept for potential future use */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.filter-btn {
+  border: none;
+  background: var(--surface);
+  color: var(--outline);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 16px;
+  border-radius: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s;
+}
+.filter-btn.active { background: var(--primary); color: var(--on-primary); border-bottom: 3px solid var(--primary-dark); }
+
+/* Level badges (used in challenge screen & path) */
+.level-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 10px;
+  margin-top: 14px;
+}
+.level-badge.初級 { background: rgba(255,184,77,0.15); color: var(--primary-dark); }
+.level-badge.中級 { background: rgba(47,128,237,0.12); color: var(--secondary-dark); }
+.level-badge.激ムズ { background: rgba(233,79,100,0.15); color: var(--tertiary); }
+
+/* Point Card (now used in challenge screen) */
+.point-card {
+  background: rgba(255,184,77,0.08);
+  border-radius: var(--rounded-lg);
+  padding: 14px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: var(--space-md);
+  border: 2px solid rgba(255,184,77,0.2);
+}
+.point-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.point-text { font-size: 13px; color: var(--on-secondary-container); line-height: 1.6; }
+.point-credit { font-size: 11px; color: var(--outline); margin-top: 4px; }
+
+/* ===== Challenge Screen ===== */
+/* Lock challenge screen to viewport so body scrolls internally */
+#screen-challenge {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+}
+
+.challenge-header {
+  background: linear-gradient(135deg, var(--primary), var(--primary-container));
+  color: var(--on-primary);
+  padding: 56px 20px 24px;
+  text-align: center;
+  position: relative;
+  flex-shrink: 0;
+}
+.challenge-phrase {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.7;
+  letter-spacing: 1px;
+}
+.challenge-yomi {
+  font-size: 13px;
+  opacity: 0.75;
+  margin-top: 8px;
+  letter-spacing: 0.5px;
+}
+.challenge-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  gap: 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Waveform Canvas */
+.waveform-container {
+  width: 100%;
+  max-width: 360px;
+  height: 120px;
+  background: var(--surface);
+  border-radius: var(--rounded-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+.waveform-container canvas { width: 100%; height: 100%; display: block; }
+
+/* Timer */
+.timer {
+  font-size: 48px;
+  font-weight: 200;
+  color: var(--on-surface);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Record Button — Tertiary Red-Pink (Action color) */
+.btn-record {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 4px solid var(--tertiary);
+  background: var(--surface);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 6px 0 var(--tertiary-dark), 0 6px 20px rgba(233,79,100,0.25);
+}
+.btn-record:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 var(--tertiary-dark), 0 2px 8px rgba(233,79,100,0.2);
+}
+.btn-record::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 34px; height: 34px;
+  background: var(--tertiary);
+  border-radius: 50%;
+  transition: all 0.3s;
+}
+.btn-record.recording { border-color: var(--tertiary); }
+.btn-record.recording::after {
+  background: var(--tertiary);
+  border-radius: 6px;
+  width: 26px; height: 26px;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 6px 0 var(--tertiary-dark), 0 0 0 0 rgba(233,79,100,0.4); }
+  50% { box-shadow: 0 6px 0 var(--tertiary-dark), 0 0 0 14px rgba(233,79,100,0); }
+}
+.btn-record.recording { animation: pulse 1.5s infinite; }
+
+/* Recording progress bar (forward-only) */
+.record-progress {
+  width: 100%;
+  max-width: 280px;
+  height: 6px;
+  background: var(--outline-variant);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 8px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.record-progress.active { opacity: 1; }
+.record-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--tertiary), var(--tertiary-container));
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+
+.record-hint {
+  font-size: 13px;
+  color: var(--outline);
+}
+
+.btn-back {
+  position: absolute;
+  top: 48px; left: 12px;
+  background: none;
+  border: none;
+  color: var(--on-primary);
+  font-size: 28px;
+  cursor: pointer;
+  padding: 8px;
+  opacity: 0.8;
+  z-index: 10;
+}
+
+/* ===== Result Screen ===== */
+.result-header {
+  background: linear-gradient(135deg, var(--primary), var(--primary-container));
+  color: var(--on-primary);
+  padding: 48px 20px 24px;
+  text-align: center;
+}
+.result-phrase {
+  font-size: 16px;
+  opacity: 0.9;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.result-score-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  border: 4px solid rgba(255,255,255,0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+.result-score-num {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+}
+.result-score-label { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+.result-rank {
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 14px;
+}
+.result-specials {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.special-badge {
+  background: rgba(255,255,255,0.2);
+  padding: 4px 12px;
+  border-radius: var(--rounded-md);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.result-body { flex: 1; padding: 20px; padding-bottom: 80px; }
+
+/* Metrics Grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.metric-card {
+  background: var(--surface);
+  border-radius: var(--rounded-lg);
+  padding: 14px;
+  border: 2px solid var(--outline-variant);
+  text-align: center;
+}
+.metric-icon { font-size: 22px; margin-bottom: 4px; }
+.metric-value { font-size: 22px; font-weight: 800; color: var(--on-surface); }
+.metric-label { font-size: 11px; color: var(--outline); margin-top: 2px; }
+
+/* Radar Chart */
+.radar-wrap {
+  background: var(--surface);
+  border-radius: var(--rounded-lg);
+  padding: 16px 12px;
+  border: 2px solid var(--outline-variant);
+  margin-bottom: 14px;
+  text-align: center;
+}
+.radar-title { font-size: 13px; color: var(--outline); font-weight: 600; margin-bottom: 4px; }
+.radar-canvas { width: 100%; max-width: 280px; height: 240px; display: block; margin: 0 auto; }
+
+/* Character Highlight */
+.char-highlight-wrap {
+  background: var(--surface);
+  border-radius: var(--rounded-lg);
+  padding: 14px 16px;
+  border: 2px solid var(--outline-variant);
+  margin-bottom: 14px;
+}
+.char-highlight-title { font-size: 12px; color: var(--outline); margin-bottom: 10px; font-weight: 600; }
+.char-highlight-summary {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--on-surface);
+  margin-bottom: 10px;
+  text-align: center;
+}
+.char-highlight-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  justify-content: center;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+.char-highlight-legend {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  font-size: 11px;
+  color: #999;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.legend-dot.match { background: #E8F5E9; border: 1px solid #4CAF50; }
+.legend-dot.wrong { background: #FFF3E0; border: 1px solid #E65100; }
+.legend-dot.miss { background: #FFEBEE; border: 1px solid #C62828; }
+.char-highlight {
+  /* container */
+}
+.char-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 34px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  transition: transform 0.2s;
+}
+.char-cell.match {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+.char-cell.wrong {
+  background: #FFF3E0;
+  color: #E65100;
+}
+.char-cell.miss {
+  background: #FFEBEE;
+  color: #C62828;
+  text-decoration: line-through;
+}
+.char-cell.garbled {
+  background: #F5F5F5;
+  color: #999;
+  font-size: 12px;
+  width: 24px;
+  height: 28px;
+  border: 1px dashed #ccc;
+}
+.char-cell.wrong {
+  position: relative;
+}
+.char-actual {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  font-size: 9px;
+  color: #E65100;
+  font-weight: 800;
+  line-height: 1;
+}
+.legend-dot.garbled { background: #F5F5F5; border: 1px dashed var(--outline); }
+/* Result Waveform */
+/* Transcript */
+.result-transcript-wrap {
+  background: var(--surface);
+  border-radius: var(--rounded-lg);
+  padding: 14px;
+  border: 2px solid var(--outline-variant);
+  margin-bottom: 12px;
+}
+.result-transcript-title { font-size: 12px; color: var(--outline); margin-bottom: 10px; font-weight: 600; }
+.result-transcript-expected, .result-transcript-actual {
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 6px 0;
+}
+.result-transcript-expected { color: var(--outline); }
+.result-transcript-expected::before { content: '正解　'; font-size: 11px; color: var(--outline-variant); }
+.result-transcript-actual { color: var(--on-surface); }
+.result-transcript-actual::before { content: '認識　'; font-size: 11px; color: var(--primary); }
+
+.result-waveform-wrap {
+  background: var(--surface);
+  border-radius: var(--rounded-lg);
+  padding: 14px;
+  border: 2px solid var(--outline-variant);
+  margin-bottom: 20px;
+}
+.result-waveform-title { font-size: 12px; color: var(--outline); margin-bottom: 8px; font-weight: 600; }
+.result-waveform-canvas { width: 100%; height: 120px; display: block; border-radius: var(--rounded-lg); background: #0D1B2A; }
+
+/* Result Actions */
+.result-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+.btn-retry {
+  width: 100%;
+  padding: 14px;
+  background: var(--surface);
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 700;
+  border: 2px solid var(--outline-variant);
+  border-bottom: 4px solid var(--outline-variant);
+  border-radius: var(--rounded-lg);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-retry:active { transform: translateY(2px); border-bottom-width: 2px; }
+.btn-home {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  background: none;
+  border: none;
+  color: var(--outline);
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+/* Share button */
+.btn-share {
+  width: 100%;
+  padding: 14px;
+  background: var(--secondary);
+  color: var(--on-secondary);
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-bottom: 4px solid var(--secondary-dark);
+  border-radius: var(--rounded-lg);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-share:active { transform: translateY(2px); border-bottom-width: 2px; }
+.share-toast {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--on-surface);
+  color: var(--surface);
+  padding: 10px 24px;
+  border-radius: var(--rounded-lg);
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 200;
+  pointer-events: none;
+}
+.share-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Hidden canvas for share card generation */
+.share-canvas { display: none; }
+
+/* Today's challenge badge in header (hidden — replaced by today-card) */
+.today-badge { display: none !important; }
+
+/* ===== Today's Challenge Card ===== */
+.today-card {
+  background: var(--surface);
+  border-radius: var(--rounded-xl);
+  padding: 20px;
+  margin: -20px 16px 16px;
+  position: relative;
+  z-index: 2;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+.today-card-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tertiary);
+  margin-bottom: 10px;
+}
+.today-card-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tertiary);
+  animation: todayPulse 2s ease-in-out infinite;
+}
+@keyframes todayPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.3); }
+}
+.today-card-phrase {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--on-surface);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.today-card-meta {
+  font-size: 12px;
+  color: var(--outline);
+  margin-bottom: 14px;
+}
+/* Cleared state: softer colors, no pulse */
+.today-card.cleared .today-card-label { color: var(--primary); }
+.today-card.cleared .today-card-dot {
+  background: var(--primary);
+  animation: none;
+}
+.today-card.cleared .today-card-btn {
+  background: var(--primary);
+  border-bottom-color: var(--primary-dark);
+}
+
+.today-card-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 32px;
+  background: var(--tertiary);
+  color: var(--on-tertiary);
+  border: none;
+  border-bottom: 4px solid var(--tertiary-dark);
+  border-radius: var(--rounded-lg);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.today-card-btn:active { transform: translateY(2px); border-bottom-width: 2px; }
+
+/* ===== Mic Permission Overlay ===== */
+.mic-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(25,28,30,0.5);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.mic-overlay.active { display: flex; }
+.mic-dialog {
+  background: var(--surface);
+  border-radius: var(--rounded-xl);
+  padding: 32px 24px;
+  text-align: center;
+  max-width: 320px;
+  width: 100%;
+  box-shadow: var(--shadow-xl);
+}
+.mic-icon { font-size: 48px; margin-bottom: 16px; }
+.mic-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.mic-desc { font-size: 14px; color: var(--on-surface-variant); line-height: 1.6; margin-bottom: 24px; }
+.mic-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 16px;
+  font-weight: 700;
+  border: none;
+  border-bottom: 4px solid var(--primary-dark);
+  border-radius: var(--rounded-lg);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mic-btn:active { transform: translateY(2px); border-bottom-width: 2px; }
+.mic-error { color: var(--error); font-size: 13px; margin-top: 12px; display: none; }
+
+/* ===== Analyzing Overlay ===== */
+.analyzing-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(247,249,251,0.95);
+  z-index: 90;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+}
+.analyzing-overlay.active { display: flex; }
+.analyzing-spinner {
+  width: 48px; height: 48px;
+  border: 4px solid var(--outline-variant);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.analyzing-text { font-size: 15px; color: var(--on-surface-variant); font-weight: 600; }
+
+/* ===== Confetti ===== */
+.confetti-container {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 200;
+  overflow: hidden;
+}
+.confetti-piece {
+  position: absolute;
+  width: 10px; height: 10px;
+  top: -20px;
+  animation: confettiFall 2.5s ease-in forwards;
+}
+@keyframes confettiFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+/* ===== Fallback Notice ===== */
+.fallback-notice {
+  background: rgba(255,184,77,0.08);
+  border-radius: var(--rounded-lg);
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--on-surface-variant);
+  line-height: 1.5;
+  margin-bottom: 16px;
+  display: none;
+  border: 2px solid rgba(255,184,77,0.2);
+}
+.fallback-notice.visible { display: block; }
+
+/* ===== Progress Path (Sugoroku Board Game) ===== */
+.path-progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.path-progress-track {
+  flex: 1;
+  height: 8px;
+  background: var(--outline-variant);
+  border-radius: var(--rounded-sm);
+  overflow: hidden;
+}
+.path-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--primary-container));
+  border-radius: 9999px;
+  transition: width 0.6s ease;
+}
+.path-progress-track {
+  border-radius: 9999px;
+}
+.path-progress-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+  white-space: nowrap;
+}
+
+/* ===== Compact Grid Board ===== */
+.progress-path {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+}
+
+/* Game Board — the bordered playing field */
+.game-board {
+  background: var(--surface);
+  border: 3px solid var(--outline-variant);
+  border-radius: var(--rounded-xl);
+  padding: 36px 12px 12px;
+  position: relative;
+  overflow: hidden;
+}
+/* Subtle dot-grid pattern on board */
+.game-board::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+/* Compact grid layout */
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Board game tile (マス) */
+.path-node {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.path-node:active { transform: scale(0.95); }
+
+/* Tile shape — rounded square (responsive for 4-col grid) */
+.path-node-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--rounded-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+
+/* Colored checkmark for cleared tiles & tabs */
+.tile-check { font-size: 22px; font-weight: 800; }
+
+/* Completed tile — blue with 3D extrusion */
+.path-node.completed .path-node-circle {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-bottom: 4px solid var(--primary-dark);
+}
+/* Current tile — orange highlight with glow + bounce */
+.path-node.current .path-node-circle {
+  background: var(--secondary);
+  color: var(--on-secondary);
+  font-size: 22px;
+  border-bottom: 5px solid var(--secondary-dark);
+  box-shadow: 0 4px 16px rgba(47,128,237,0.35);
+  animation: tilePulse 2s ease-in-out infinite;
+}
+/* Upcoming tile — white, locked feel */
+.path-node.upcoming .path-node-circle {
+  background: var(--surface);
+  color: var(--outline);
+  border: 2px solid var(--outline-variant);
+  border-bottom: 4px solid var(--outline-variant);
+}
+/* Attempted but not cleared */
+.path-node.attempted .path-node-circle {
+  background: rgba(47,128,237,0.10);
+  color: var(--secondary-dark);
+  border: 2px dashed var(--secondary);
+  border-bottom: 4px dashed var(--secondary);
+}
+
+/* Selected tile — ring highlight */
+.path-node.selected .path-node-circle {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+.path-node.current.selected .path-node-circle { outline: none; }
+
+/* "いまここ！" indicator above current tile */
+.current-indicator {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--tertiary);
+  color: var(--on-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--rounded);
+  white-space: nowrap;
+  animation: indicatorBounce 1.5s ease-in-out infinite;
+  pointer-events: none;
+}
+.current-indicator::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--tertiary);
+}
+@keyframes indicatorBounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+
+.path-node-text {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  max-width: 72px;
+  text-align: center;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.path-node.completed .path-node-text { color: var(--primary); }
+.path-node.current .path-node-text { color: var(--secondary-dark); font-size: 11px; font-weight: 700; }
+.path-node.upcoming .path-node-text { color: var(--outline-variant); }
+.path-node.attempted .path-node-text { color: var(--secondary-dark); }
+.path-node.selected .path-node-text { color: var(--primary) !important; }
+
+@keyframes tilePulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 4px 16px rgba(47,128,237,0.35); }
+  50% { transform: scale(1.05); box-shadow: 0 6px 20px rgba(47,128,237,0.45); }
+}
+
+/* Next button (result screen) — Primary Blue 3D */
+.btn-next {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-bottom: 4px solid var(--primary-dark);
+  border-radius: var(--rounded-lg);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 10px;
+}
+.btn-next:active { transform: translateY(2px); border-bottom-width: 2px; }
+
+/* Level Tabs (switch between unlocked levels) */
+.level-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  justify-content: center;
+}
+.level-tab {
+  border: none;
+  background: var(--surface);
+  color: var(--outline);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s;
+}
+.level-tab.active { background: var(--primary); color: var(--on-primary); border-bottom: 3px solid var(--primary-dark); }
+.level-tab.locked {
+  background: var(--outline-variant);
+  color: var(--surface);
+  cursor: not-allowed;
+}
+.level-tab.completed {
+  background: rgba(255,184,77,0.15);
+  color: var(--primary-dark);
+}
+.level-tab.completed.active {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-bottom: 3px solid var(--primary-dark);
+}
+
+/* Level Gate — Goal checkpoint */
+.level-gate {
+  width: 100%;
+  text-align: center;
+  padding: 24px 20px;
+  margin-top: 12px;
+  position: relative;
+}
+.level-gate-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.level-gate-line {
+  flex: 1;
+  height: 3px;
+  background: var(--outline-variant);
+  border-radius: 2px;
+}
+.level-gate-icon {
+  font-size: 32px;
+  background: var(--background);
+  padding: 4px 8px;
+  border-radius: var(--rounded);
+}
+.level-gate-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--on-surface);
+  margin-bottom: 6px;
+}
+.level-gate-subtitle {
+  font-size: 13px;
+  color: var(--outline);
+  margin-bottom: 16px;
+}
+.btn-unlock {
+  display: inline-block;
+  padding: 12px 32px;
+  background: var(--secondary);
+  color: var(--on-secondary);
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-bottom: 4px solid var(--secondary-dark);
+  border-radius: var(--rounded-lg);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-unlock:active { transform: translateY(2px); border-bottom-width: 2px; }
+.btn-unlock.locked {
+  background: var(--outline-variant);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Level complete celebration badge (non-interactive) */
+.level-gate-celebration {
+  font-size: 40px;
+  margin-bottom: 8px;
+}
+
+/* Level Complete Celebration Overlay */
+.levelup-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(25,28,30,0.6);
+  z-index: 150;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.levelup-overlay.active { display: flex; }
+.levelup-dialog {
+  background: var(--surface);
+  border-radius: var(--rounded-xl);
+  padding: 40px 28px;
+  text-align: center;
+  max-width: 320px;
+  width: 100%;
+  box-shadow: var(--shadow-xl);
+  animation: levelupPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes levelupPop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.levelup-icon { font-size: 64px; margin-bottom: 12px; }
+.levelup-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--on-surface);
+  margin-bottom: 8px;
+}
+.levelup-desc {
+  font-size: 14px;
+  color: var(--on-surface-variant);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+.levelup-stars {
+  font-size: 32px;
+  letter-spacing: 8px;
+  margin-bottom: 20px;
+}
+.btn-levelup {
+  width: 100%;
+  padding: 14px;
+  background: var(--secondary);
+  color: var(--on-secondary);
+  font-size: 16px;
+  font-weight: 700;
+  border: none;
+  border-bottom: 4px solid var(--secondary-dark);
+  border-radius: var(--rounded-lg);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-levelup:active { transform: translateY(2px); border-bottom-width: 2px; }
+.btn-levelup-stay {
+  width: 100%;
+  padding: 12px;
+  background: none;
+  border: none;
+  color: var(--outline);
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+/* ===== Reset Button ===== */
+.reset-area {
+  text-align: center;
+  padding: 24px 0 8px;
+}
+.btn-reset {
+  background: none;
+  border: none;
+  color: var(--outline-variant);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 8px 16px;
+}
+.btn-reset:active { color: var(--outline); }
+
+/* Reset Confirm Overlay */
+.reset-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(25,28,30,0.5);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.reset-overlay.active { display: flex; }
+.reset-dialog {
+  background: var(--surface);
+  border-radius: var(--rounded-xl);
+  padding: 28px 24px;
+  text-align: center;
+  max-width: 300px;
+  width: 100%;
+  box-shadow: var(--shadow-xl);
+}
+.reset-dialog-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+.reset-dialog-desc { font-size: 13px; color: var(--on-surface-variant); line-height: 1.6; margin-bottom: 20px; }
+.reset-dialog-actions { display: flex; gap: 10px; }
+.btn-reset-cancel {
+  flex: 1;
+  padding: 12px;
+  background: var(--outline-variant);
+  color: var(--on-surface-variant);
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--rounded);
+  cursor: pointer;
+}
+.btn-reset-confirm {
+  flex: 1;
+  padding: 12px;
+  background: var(--error);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--rounded);
+  cursor: pointer;
+}
+
+/* ===== Path Node Score Badge ===== */
+.path-node-score {
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 2px;
+  line-height: 1;
+}
+.path-node.completed .path-node-score { color: var(--primary); }
+
+/* ===== Ruby (Furigana) ===== */
+.challenge-phrase ruby {
+  ruby-position: over;
+}
+.challenge-phrase rt {
+  font-size: 9px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* ===== Utility ===== */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  border: 0;
+}
+
+/* ===== Safe area ===== */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .top-body, .result-body { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+}
+
+/* ===== Splash Screen ===== */
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: linear-gradient(135deg, var(--primary), var(--primary-container));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+.splash-screen.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.splash-mascot {
+  width: 140px;
+  height: 140px;
+  animation: splashBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes splashBounce {
+  0% { transform: scale(0.3) translateY(40px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.splash-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--on-primary);
+  letter-spacing: 2px;
+  opacity: 0;
+  animation: splashFadeUp 0.5s 0.3s ease forwards;
+}
+.splash-subtitle {
+  font-size: 13px;
+  color: var(--on-primary);
+  opacity: 0;
+  animation: splashFadeUp 0.4s 0.5s ease forwards;
+}
+@keyframes splashFadeUp {
+  0% { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 0.9; transform: translateY(0); }
+}
+
+/* ===== Bottom Navigation ===== */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--surface);
+  border-top: 1px solid var(--outline-variant);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  padding: 0 8px;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+  transition: transform 0.3s ease;
+}
+.bottom-nav.hidden {
+  transform: translateY(calc(100% + 24px));
+  visibility: hidden;
+}
+.nav-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--outline);
+  transition: color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-tab.active { color: var(--primary-dark); }
+.nav-tab-icon { width: 24px; height: 24px; }
+.nav-tab-icon svg { width: 100%; height: 100%; fill: currentColor; }
+.nav-tab-label { font-size: 10px; font-weight: 600; }
+
+/* Center challenge button (protruding) */
+.nav-tab-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0 0 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-center-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--tertiary), var(--tertiary-container));
+  color: var(--on-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -22px;
+  box-shadow: 0 4px 0 var(--tertiary-dark), 0 4px 16px rgba(233,79,100,0.3);
+  transition: all 0.15s;
+}
+.nav-tab-center:active .nav-center-btn {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--tertiary-dark), 0 2px 8px rgba(233,79,100,0.2);
+}
+.nav-center-btn svg { width: 26px; height: 26px; fill: #fff; }
+.nav-tab-center .nav-tab-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--tertiary);
+}
+
+/* ===== History (きろく) Screen ===== */
+.history-header {
+  background: linear-gradient(135deg, var(--primary), var(--primary-container));
+  color: var(--on-primary);
+  padding: 48px 20px 24px;
+  text-align: center;
+}
+.history-header h1 { font-size: 22px; font-weight: 800; letter-spacing: 1px; }
+.history-body { flex: 1; padding: 20px; padding-bottom: 80px; }
+
+.history-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.history-stat-card {
+  background: var(--surface);
+  border-radius: var(--rounded-lg);
+  padding: 16px 10px;
+  text-align: center;
+  border: 2px solid var(--outline-variant);
+}
+.history-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--on-surface);
+  line-height: 1;
+}
+.history-stat-label {
+  font-size: 11px;
+  color: var(--outline);
+  margin-top: 4px;
+}
+.history-stat-card.streak { border-color: rgba(47,128,237,0.3); }
+.history-stat-card.streak .history-stat-value { color: var(--secondary); }
+.history-stat-card.best { border-color: rgba(255,184,77,0.3); }
+.history-stat-card.best .history-stat-value { color: var(--primary-dark); }
+.history-stat-card.cleared { border-color: rgba(233,79,100,0.3); }
+.history-stat-card.cleared .history-stat-value { color: var(--tertiary); }
+
+.history-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.history-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+.history-item {
+  background: var(--surface);
+  border-radius: var(--rounded-md);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 2px solid var(--outline-variant);
+}
+.history-item-rank {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--rounded);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.history-item-rank.high { background: rgba(255,184,77,0.15); color: var(--primary-dark); }
+.history-item-rank.mid { background: rgba(47,128,237,0.1); color: var(--secondary-dark); }
+.history-item-rank.low { background: rgba(233,79,100,0.1); color: var(--tertiary); }
+.history-item-info { flex: 1; min-width: 0; }
+.history-item-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-item-meta { font-size: 11px; color: var(--outline); margin-top: 2px; }
+.history-item-score {
+  font-size: 20px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.history-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--outline);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.history-empty-mascot {
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 16px;
+  opacity: 0.6;
+}
+
+/* ===== Mascot Character ===== */
+.mascot { display: inline-block; vertical-align: middle; }
+.mascot-header {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 8px;
+  animation: mascotWave 2s ease-in-out infinite;
+}
+@keyframes mascotWave {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(5deg); }
+  75% { transform: rotate(-5deg); }
+}
+.mascot-challenge {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 4px;
+}
+.mascot-result {
+  width: 72px;
+  height: 72px;
+  margin: 8px auto;
+  display: block;
+}
+.mascot-result-bounce {
+  animation: mascotBounce 0.8s ease-in-out infinite alternate;
+}
+@keyframes mascotBounce {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-8px); }
+}
+
+/* ===== Reduced Motion (Accessibility) ===== */
+/* Compact challenge screen on short viewports */
+@media (max-height: 700px) {
+  .challenge-header { padding: 44px 16px 16px; }
+  .challenge-phrase { font-size: 18px; }
+  .waveform-container { height: 80px; }
+  .timer { font-size: 36px; }
+  .btn-record { width: 72px; height: 72px; }
+  .btn-record::after { width: 28px; height: 28px; }
+  .mascot-challenge { width: 48px; height: 48px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .splash-screen { transition: opacity 0.01ms; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== SPLASH SCREEN ===== -->
+<div class="splash-screen" id="splash-screen">
+  <svg class="splash-mascot" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <!-- Body -->
+    <ellipse cx="100" cy="120" rx="52" ry="56" fill="#FFB84D"/>
+    <ellipse cx="100" cy="120" rx="44" ry="48" fill="#FFCC66"/>
+    <!-- Belly -->
+    <ellipse cx="100" cy="132" rx="30" ry="28" fill="#FFF3D6"/>
+    <!-- Eyes -->
+    <circle cx="82" cy="100" r="14" fill="#fff"/>
+    <circle cx="118" cy="100" r="14" fill="#fff"/>
+    <circle cx="85" cy="99" r="7" fill="#1A1A1B"/>
+    <circle cx="121" cy="99" r="7" fill="#1A1A1B"/>
+    <circle cx="87" cy="97" r="2.5" fill="#fff"/>
+    <circle cx="123" cy="97" r="2.5" fill="#fff"/>
+    <!-- Beak -->
+    <path d="M93 110 L100 118 L107 110 Z" fill="#E94F64"/>
+    <!-- Wings -->
+    <ellipse cx="56" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(-15,56,126)"/>
+    <ellipse cx="144" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(15,144,126)"/>
+    <!-- Headphone band -->
+    <path d="M60 88 Q100 50 140 88" fill="none" stroke="#414753" stroke-width="6" stroke-linecap="round"/>
+    <!-- Headphone pads -->
+    <rect x="48" y="82" width="20" height="28" rx="8" fill="#414753"/>
+    <rect x="132" y="82" width="20" height="28" rx="8" fill="#414753"/>
+    <rect x="51" y="86" width="14" height="20" rx="5" fill="#5A5A5A"/>
+    <rect x="135" y="86" width="14" height="20" rx="5" fill="#5A5A5A"/>
+    <!-- Mic arm -->
+    <path d="M52 104 Q44 120 50 134" fill="none" stroke="#414753" stroke-width="3" stroke-linecap="round"/>
+    <!-- Mic -->
+    <circle cx="50" cy="136" r="6" fill="#E94F64"/>
+    <rect x="47" y="134" width="6" height="4" rx="2" fill="#C33A4E"/>
+    <!-- Feet -->
+    <ellipse cx="84" cy="174" rx="14" ry="6" fill="#D9952A"/>
+    <ellipse cx="116" cy="174" rx="14" ry="6" fill="#D9952A"/>
+  </svg>
+  <div class="splash-title">早口言葉チャレンジ</div>
+  <div class="splash-subtitle">ボイストレーナーが作ったトレーニング</div>
+</div>
+
+<!-- ===== TOP SCREEN ===== -->
+<div id="screen-top" class="screen active">
+  <div class="top-header">
+    <svg class="mascot mascot-header" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="100" cy="120" rx="52" ry="56" fill="#FFB84D"/><ellipse cx="100" cy="120" rx="44" ry="48" fill="#FFCC66"/><ellipse cx="100" cy="132" rx="30" ry="28" fill="#FFF3D6"/>
+      <circle cx="82" cy="100" r="14" fill="#fff"/><circle cx="118" cy="100" r="14" fill="#fff"/><circle cx="85" cy="99" r="7" fill="#1A1A1B"/><circle cx="121" cy="99" r="7" fill="#1A1A1B"/><circle cx="87" cy="97" r="2.5" fill="#fff"/><circle cx="123" cy="97" r="2.5" fill="#fff"/>
+      <path d="M93 110 L100 118 L107 110 Z" fill="#E94F64"/>
+      <ellipse cx="56" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(-15,56,126)"/><ellipse cx="144" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(15,144,126)"/>
+      <path d="M60 88 Q100 50 140 88" fill="none" stroke="#414753" stroke-width="6" stroke-linecap="round"/><rect x="48" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="132" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="51" y="86" width="14" height="20" rx="5" fill="#5A5A5A"/><rect x="135" y="86" width="14" height="20" rx="5" fill="#5A5A5A"/>
+      <path d="M52 104 Q44 120 50 134" fill="none" stroke="#414753" stroke-width="3" stroke-linecap="round"/><circle cx="50" cy="136" r="6" fill="#E94F64"/><rect x="47" y="134" width="6" height="4" rx="2" fill="#C33A4E"/>
+      <!-- Waving wing (right wing raised) -->
+      <ellipse cx="148" cy="118" rx="18" ry="30" fill="#2F80ED" transform="rotate(30,148,118)"/>
+      <ellipse cx="84" cy="174" rx="14" ry="6" fill="#D9952A"/><ellipse cx="116" cy="174" rx="14" ry="6" fill="#D9952A"/>
+    </svg>
+    <h1>早口言葉チャレンジ</h1>
+    <p class="top-tagline">録って、点数が出る。レベルアップをめざそう！</p>
+    <div class="today-badge" id="today-badge">
+      <span class="today-badge-dot"></span>
+      <span id="today-badge-text">今日のお題：</span>
+    </div>
+    <div class="streak-badge" id="streak-badge" style="display:none">
+      <span>📅</span>
+      <span id="streak-count">0</span>
+      <span>日連続</span>
+    </div>
+  </div>
+
+  <!-- Today's Challenge Card -->
+  <div class="today-card" id="today-card" style="display:none">
+    <div class="today-card-label">
+      <span class="today-card-dot"></span>
+      今日のお題
+    </div>
+    <div class="today-card-phrase" id="today-card-phrase"></div>
+    <div class="today-card-meta" id="today-card-meta"></div>
+    <button class="today-card-btn" id="today-card-btn">チャレンジする →</button>
+  </div>
+
+  <div class="top-body">
+    <div class="path-progress-bar">
+      <div class="path-progress-track">
+        <div class="path-progress-fill" id="path-progress-fill" style="width:0%"></div>
+      </div>
+      <span class="path-progress-text" id="path-progress-text">0/16</span>
+    </div>
+
+    <div class="fallback-notice" id="fallback-notice">
+      ⚠ このブラウザでは音声認識が使えないため、「正確さ」の判定はスキップされます。タイム・波形・元気度で楽しめます！
+    </div>
+
+    <div class="level-tabs" id="level-tabs"></div>
+    <div class="progress-path" id="progress-path"></div>
+    <div class="reset-area">
+      <button class="btn-reset" id="btn-reset">記録をリセット</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CHALLENGE SCREEN ===== -->
+<div id="screen-challenge" class="screen">
+  <div class="challenge-header" style="position:relative">
+    <button class="btn-back" id="btn-challenge-back" aria-label="戻る">‹</button>
+    <p class="challenge-phrase" id="challenge-phrase"></p>
+    <p class="challenge-yomi" id="challenge-yomi"></p>
+  </div>
+  <div class="challenge-body">
+    <div class="point-card" id="challenge-point-card">
+      <span class="point-icon">💡</span>
+      <div>
+        <div class="point-text" id="challenge-point-text"></div>
+        <div class="point-credit">ボイストレーナーの発音ワンポイント</div>
+      </div>
+    </div>
+    <div class="waveform-container">
+      <canvas id="waveform-live"></canvas>
+    </div>
+    <div class="timer" id="timer">0.0</div>
+    <div class="record-progress" id="record-progress">
+      <div class="record-progress-fill" id="record-progress-fill"></div>
+    </div>
+    <button class="btn-record" id="btn-record" aria-label="録音"></button>
+    <p class="record-hint" id="record-hint">タップして録音開始</p>
+    <svg class="mascot mascot-challenge" id="mascot-challenge" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="100" cy="120" rx="52" ry="56" fill="#FFB84D"/><ellipse cx="100" cy="120" rx="44" ry="48" fill="#FFCC66"/><ellipse cx="100" cy="132" rx="30" ry="28" fill="#FFF3D6"/>
+      <circle cx="82" cy="100" r="14" fill="#fff"/><circle cx="118" cy="100" r="14" fill="#fff"/><circle cx="85" cy="99" r="7" fill="#1A1A1B"/><circle cx="121" cy="99" r="7" fill="#1A1A1B"/><circle cx="87" cy="97" r="2.5" fill="#fff"/><circle cx="123" cy="97" r="2.5" fill="#fff"/>
+      <path d="M93 110 L100 118 L107 110 Z" fill="#E94F64"/>
+      <ellipse cx="56" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(-15,56,126)"/><ellipse cx="144" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(15,144,126)"/>
+      <path d="M60 88 Q100 50 140 88" fill="none" stroke="#414753" stroke-width="6" stroke-linecap="round"/><rect x="48" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="132" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="51" y="86" width="14" height="20" rx="5" fill="#5A5A5A"/><rect x="135" y="86" width="14" height="20" rx="5" fill="#5A5A5A"/>
+      <path d="M52 104 Q44 120 50 134" fill="none" stroke="#414753" stroke-width="3" stroke-linecap="round"/><circle cx="50" cy="136" r="6" fill="#E94F64"/><rect x="47" y="134" width="6" height="4" rx="2" fill="#C33A4E"/>
+      <ellipse cx="84" cy="174" rx="14" ry="6" fill="#D9952A"/><ellipse cx="116" cy="174" rx="14" ry="6" fill="#D9952A"/>
+      <!-- Speech bubble: やってみよう！ -->
+      <rect x="120" y="50" width="72" height="28" rx="12" fill="#fff" opacity="0.9"/>
+      <polygon points="124,72 132,78 136,72" fill="#fff" opacity="0.9"/>
+      <text x="156" y="68" text-anchor="middle" font-size="11" font-weight="700" fill="#1A1A1B">やってみよう！</text>
+    </svg>
+  </div>
+</div>
+
+<!-- ===== RESULT SCREEN ===== -->
+<div id="screen-result" class="screen">
+  <div class="result-header">
+    <p class="result-phrase" id="result-phrase"></p>
+    <div class="result-score-circle">
+      <span class="result-score-num" id="result-score">0</span>
+      <span class="result-score-label">SCORE</span>
+    </div>
+    <div class="result-rank" id="result-rank"></div>
+    <div class="result-specials" id="result-specials"></div>
+    <!-- Mascot reacts to score (swapped by JS) -->
+    <svg class="mascot mascot-result mascot-result-bounce" id="mascot-result" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+  <div class="result-body">
+    <div class="radar-wrap">
+      <div class="radar-title">📊 分析レーダー</div>
+      <canvas class="radar-canvas" id="radar-canvas"></canvas>
+    </div>
+
+    <div class="char-highlight-wrap" id="char-highlight-wrap" style="display:none">
+      <div class="char-highlight-title">🔍 文字の正誤</div>
+      <div class="char-highlight" id="char-highlight"></div>
+    </div>
+
+    <div class="metrics-grid" id="metrics-grid"></div>
+
+    <div class="result-transcript-wrap" id="result-transcript-wrap" style="display:none">
+      <div class="result-transcript-title">🗣 聞き取り結果</div>
+      <div class="result-transcript-expected" id="result-transcript-expected"></div>
+      <div class="result-transcript-actual" id="result-transcript-actual"></div>
+    </div>
+
+    <div class="result-waveform-wrap">
+      <div class="result-waveform-title">🎨 声の波形</div>
+      <canvas class="result-waveform-canvas" id="waveform-result"></canvas>
+    </div>
+
+    <div class="result-actions">
+      <button class="btn-retry" id="btn-retry">もう1回</button>
+      <button class="btn-share" id="btn-share">📤 結果をシェア</button>
+    </div>
+    <button class="btn-next" id="btn-next">次のお題へ →</button>
+    <button class="btn-home" id="btn-home">お題一覧に戻る</button>
+  </div>
+</div>
+<canvas class="share-canvas" id="share-canvas" width="600" height="600"></canvas>
+<div class="share-toast" id="share-toast">コピーしました！</div>
+
+<!-- ===== Mic Permission Overlay ===== -->
+<div class="mic-overlay" id="mic-overlay">
+  <div class="mic-dialog">
+    <div class="mic-icon">🎤</div>
+    <div class="mic-title">マイクを使います</div>
+    <div class="mic-desc">あなたの声を録音して分析します。<br>「許可」をタップしてください。</div>
+    <button class="mic-btn" id="btn-mic-allow">OK！許可する</button>
+    <p class="mic-error" id="mic-error">マイクが許可されませんでした。ブラウザの設定からマイクを許可してください。</p>
+  </div>
+</div>
+
+<!-- ===== Reset Confirm Overlay ===== -->
+<div class="reset-overlay" id="reset-overlay">
+  <div class="reset-dialog">
+    <div class="reset-dialog-title">記録をリセットしますか？</div>
+    <div class="reset-dialog-desc">すべてのクリア記録・連続記録が消えます。この操作は取り消せません。</div>
+    <div class="reset-dialog-actions">
+      <button class="btn-reset-cancel" id="btn-reset-cancel">やめる</button>
+      <button class="btn-reset-confirm" id="btn-reset-confirm">リセット</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Analyzing Overlay ===== -->
+<div class="analyzing-overlay" id="analyzing-overlay">
+  <div class="analyzing-spinner"></div>
+  <p class="analyzing-text">分析中...</p>
+</div>
+
+<!-- ===== Level Up Overlay ===== -->
+<div class="levelup-overlay" id="levelup-overlay">
+  <div class="levelup-dialog">
+    <div class="levelup-icon" id="levelup-icon">🎉</div>
+    <div class="levelup-stars" id="levelup-stars">🎖️🎖️🎖️</div>
+    <div class="levelup-title" id="levelup-title">初級クリア！</div>
+    <div class="levelup-desc" id="levelup-desc">おめでとう！次のレベルが解放されました。</div>
+    <button class="btn-levelup" id="btn-levelup">次のレベルへ →</button>
+    <button class="btn-levelup-stay" id="btn-levelup-stay">このレベルをもう少し練習する</button>
+  </div>
+</div>
+
+<!-- ===== HISTORY (きろく) SCREEN ===== -->
+<div id="screen-history" class="screen">
+  <div class="history-header">
+    <h1>📊 きろく</h1>
+  </div>
+  <div class="history-body">
+    <div class="history-stats" id="history-stats"></div>
+    <div class="history-section-title">🏆 ベストスコア</div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+</div>
+
+<!-- ===== Bottom Navigation ===== -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="nav-tab active" id="nav-home" aria-label="ホーム">
+    <span class="nav-tab-icon"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span>
+    <span class="nav-tab-label">ホーム</span>
+  </button>
+  <button class="nav-tab-center" id="nav-challenge" aria-label="チャレンジ">
+    <span class="nav-center-btn"><svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg></span>
+    <span class="nav-tab-label">チャレンジ</span>
+  </button>
+  <button class="nav-tab" id="nav-history" aria-label="きろく">
+    <span class="nav-tab-icon"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg></span>
+    <span class="nav-tab-label">きろく</span>
+  </button>
+</nav>
+
+<!-- ===== Confetti Container ===== -->
+<div class="confetti-container" id="confetti-container"></div>
+
+<script>
+/* ============================================================
+   早口言葉チャレンジ — Main Application
+   ============================================================ */
+
+// ===== App Version (bump to clear old test data on major updates) =====
+const APP_VERSION = 3;
+function migrateIfNeeded() {
+  const stored = parseInt(localStorage.getItem('hayakuchi_version') || '0');
+  if (stored < APP_VERSION) {
+    localStorage.removeItem('hayakuchi_progress');
+    localStorage.removeItem('hayakuchi_levels');
+    localStorage.removeItem('hayakuchi_streak');
+    localStorage.setItem('hayakuchi_version', String(APP_VERSION));
+  }
+}
+
+// ===== Config =====
+const CONFIG = {
+  maxRecordSec: 30,
+  sampleRate: 44100,
+  silenceThresholdRMS: 0.015,
+  stumbleGapMs: 350,
+  analysisWindowMs: 25,
+  weights: { accuracy: 0.50, speed: 0.25, articulation: 0.15, stumble: 0.10 },
+};
+
+// ===== State =====
+const state = {
+  phrases: [],
+  currentPhrase: null,
+  currentFilter: '',
+  isRecording: false,
+  hasSpeechRecognition: false,
+  // Audio
+  audioCtx: null,
+  stream: null,
+  analyserNode: null,
+  sourceNode: null,
+  processorNode: null,
+  rawSamples: [],
+  // Recording
+  recordStartTime: 0,
+  recordDuration: 0,
+  timerInterval: null,
+  animFrameId: null,
+  // Recognition
+  recognition: null,
+  recognizedText: '',
+  // Streak
+  streak: 0,
+  // Progress
+  progress: {},
+  // Level progression
+  unlockedLevels: ['初級'],  // Start with only 初級 unlocked
+  currentLevel: '初級',
+  pendingLevelUp: null,
+};
+
+// ===== Data Loading =====
+async function loadPhrases() {
+  try {
+    const res = await fetch('早口言葉データ.json');
+    const data = await res.json();
+    state.phrases = data.phrases;
+  } catch (e) {
+    console.error('データ読み込みエラー:', e);
+    state.phrases = [];
+  }
+}
+
+// ===== Today's Phrase Selection =====
+function hashCode(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h) + str.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+}
+
+function getTodayPhrase(difficulty) {
+  let pool = state.phrases;
+  if (difficulty) pool = pool.filter(p => p.level === difficulty);
+  if (pool.length === 0) return null;
+  const dateStr = new Date().toDateString();
+  const key = difficulty ? dateStr + difficulty : dateStr;
+  const idx = hashCode(key) % pool.length;
+  return pool[idx];
+}
+
+// ===== Progress Tracking =====
+function loadProgressData() {
+  try { return JSON.parse(localStorage.getItem('hayakuchi_progress') || '{}'); }
+  catch { return {}; }
+}
+
+function saveProgressData(phraseId, score) {
+  const progress = loadProgressData();
+  const existing = progress[phraseId];
+  progress[phraseId] = {
+    score,
+    bestScore: existing ? Math.max(existing.bestScore, score) : score,
+    completedAt: new Date().toISOString().slice(0, 10),
+  };
+  localStorage.setItem('hayakuchi_progress', JSON.stringify(progress));
+  state.progress = progress;
+}
+
+function getNextPhraseId() {
+  // Only look within unlocked levels — prioritize uncleared phrases
+  for (const phrase of state.phrases) {
+    if (state.unlockedLevels.includes(phrase.level) && !isPhraseCleared(phrase.id)) return phrase.id;
+  }
+  return null; // all completed in unlocked levels
+}
+
+// Level progression
+const LEVEL_ORDER = ['初級', '中級', '激ムズ'];
+const CLEAR_SCORE = 70; // Minimum score to count a phrase as "cleared"
+
+function isPhraseCleared(phraseId) {
+  const p = state.progress[phraseId];
+  return p && p.bestScore >= CLEAR_SCORE;
+}
+
+function loadUnlockedLevels() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('hayakuchi_levels') || '["初級"]');
+    return saved;
+  } catch { return ['初級']; }
+}
+
+function saveUnlockedLevels(levels) {
+  localStorage.setItem('hayakuchi_levels', JSON.stringify(levels));
+}
+
+function isLevelComplete(level) {
+  const levelPhrases = state.phrases.filter(p => p.level === level);
+  return levelPhrases.length > 0 && levelPhrases.every(p => isPhraseCleared(p.id));
+}
+
+function getNextLevel(currentLevel) {
+  const idx = LEVEL_ORDER.indexOf(currentLevel);
+  if (idx < 0 || idx >= LEVEL_ORDER.length - 1) return null;
+  return LEVEL_ORDER[idx + 1];
+}
+
+function unlockLevel(level) {
+  if (!state.unlockedLevels.includes(level)) {
+    state.unlockedLevels.push(level);
+    saveUnlockedLevels(state.unlockedLevels);
+  }
+}
+
+function getCurrentActiveLevel() {
+  // Stay on the current level unless the user explicitly navigates away
+  // If currentLevel is set and still valid, keep it
+  if (state.currentLevel && state.unlockedLevels.includes(state.currentLevel)) {
+    return state.currentLevel;
+  }
+  // Fallback: return the first unlocked level with uncompleted phrases
+  for (const level of LEVEL_ORDER) {
+    if (!state.unlockedLevels.includes(level)) continue;
+    const levelPhrases = state.phrases.filter(p => p.level === level);
+    if (levelPhrases.some(p => !state.progress[p.id])) return level;
+  }
+  // All unlocked levels complete — return the last one
+  return state.unlockedLevels[state.unlockedLevels.length - 1];
+}
+
+// Sync unlocked levels with existing progress (for upgrades from old version)
+function syncUnlockedLevelsWithProgress() {
+  let changed = false;
+  for (let i = 0; i < LEVEL_ORDER.length; i++) {
+    const level = LEVEL_ORDER[i];
+    if (isLevelComplete(level) && i + 1 < LEVEL_ORDER.length) {
+      const nextLevel = LEVEL_ORDER[i + 1];
+      if (!state.unlockedLevels.includes(nextLevel)) {
+        state.unlockedLevels.push(nextLevel);
+        changed = true;
+      }
+    }
+  }
+  if (changed) saveUnlockedLevels(state.unlockedLevels);
+}
+
+// ===== Screen Management =====
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+
+  // Bottom nav visibility: show on top & history, hide on challenge & result
+  const nav = document.getElementById('bottom-nav');
+  if (name === 'top' || name === 'history') {
+    nav.classList.remove('hidden');
+    // Update active tab
+    document.getElementById('nav-home').classList.toggle('active', name === 'top');
+    document.getElementById('nav-history').classList.toggle('active', name === 'history');
+  } else {
+    nav.classList.add('hidden');
+  }
+}
+
+// ===== Splash Screen =====
+function dismissSplash() {
+  const splash = document.getElementById('splash-screen');
+  splash.classList.add('hidden');
+  setTimeout(() => { splash.remove(); }, 600);
+}
+
+// ===== Bottom Navigation =====
+function setupBottomNav() {
+  document.getElementById('nav-home').addEventListener('click', () => {
+    showScreen('top');
+    renderTopScreen();
+  });
+
+  document.getElementById('nav-challenge').addEventListener('click', () => {
+    // Use today's challenge phrase (Wordle-style daily challenge)
+    const { phrase } = getTodayChallenge();
+    if (phrase) {
+      state.currentPhrase = phrase;
+      // Switch to the phrase's level if needed
+      if (state.currentLevel !== phrase.level && state.unlockedLevels.includes(phrase.level)) {
+        state.currentLevel = phrase.level;
+      }
+    } else {
+      // Fallback: next uncleared phrase
+      state.progress = loadProgressData();
+      const levelPhrases = state.phrases.filter(p => p.level === state.currentLevel);
+      const next = levelPhrases.find(p => !isPhraseCleared(p.id));
+      state.currentPhrase = next || levelPhrases[0];
+    }
+    if (!state.currentPhrase) return;
+
+    if (!state.stream) {
+      document.getElementById('mic-overlay').classList.add('active');
+      return;
+    }
+    startChallenge();
+  });
+
+  document.getElementById('nav-history').addEventListener('click', () => {
+    renderHistoryScreen();
+    showScreen('history');
+  });
+}
+
+// ===== History (きろく) Screen =====
+function renderHistoryScreen() {
+  const progress = loadProgressData();
+  const phrases = state.phrases;
+
+  // Stats
+  const totalCleared = Object.values(progress).filter(p => p.bestScore >= CLEAR_SCORE).length;
+  const allScores = Object.values(progress).map(p => p.bestScore).filter(s => s > 0);
+  const bestScore = allScores.length > 0 ? Math.max(...allScores) : 0;
+
+  const statsEl = document.getElementById('history-stats');
+  statsEl.innerHTML = `
+    <div class="history-stat-card streak">
+      <div class="history-stat-value">${state.streak}</div>
+      <div class="history-stat-label">日連続</div>
+    </div>
+    <div class="history-stat-card best">
+      <div class="history-stat-value">${bestScore}</div>
+      <div class="history-stat-label">最高スコア</div>
+    </div>
+    <div class="history-stat-card cleared">
+      <div class="history-stat-value">${totalCleared}</div>
+      <div class="history-stat-label">クリア数</div>
+    </div>
+  `;
+
+  // History list (sorted by best score descending)
+  const listEl = document.getElementById('history-list');
+  const entries = phrases
+    .filter(p => progress[p.id])
+    .map(p => ({ phrase: p, data: progress[p.id] }))
+    .sort((a, b) => b.data.bestScore - a.data.bestScore);
+
+  if (entries.length === 0) {
+    listEl.innerHTML = `
+      <div class="history-empty">
+        <svg class="history-empty-mascot" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="100" cy="120" rx="52" ry="56" fill="#FFB84D"/><ellipse cx="100" cy="120" rx="44" ry="48" fill="#FFCC66"/><ellipse cx="100" cy="132" rx="30" ry="28" fill="#FFF3D6"/>
+          <circle cx="82" cy="100" r="14" fill="#fff"/><circle cx="118" cy="100" r="14" fill="#fff"/><circle cx="85" cy="99" r="7" fill="#1A1A1B"/><circle cx="121" cy="99" r="7" fill="#1A1A1B"/><circle cx="87" cy="97" r="2.5" fill="#fff"/><circle cx="123" cy="97" r="2.5" fill="#fff"/>
+          <path d="M93 110 L100 118 L107 110 Z" fill="#E94F64"/>
+          <ellipse cx="56" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(-15,56,126)"/><ellipse cx="144" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(15,144,126)"/>
+          <path d="M60 88 Q100 50 140 88" fill="none" stroke="#414753" stroke-width="6" stroke-linecap="round"/><rect x="48" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="132" y="82" width="20" height="28" rx="8" fill="#414753"/>
+          <!-- Question marks -->
+          <text x="100" y="70" text-anchor="middle" font-size="24" fill="#D9952A">？</text>
+        </svg>
+        まだ記録がありません<br>チャレンジしてみよう！
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = entries.map(({ phrase, data }) => {
+    const score = data.bestScore;
+    const rankCls = score >= 75 ? 'high' : score >= 60 ? 'mid' : 'low';
+    const levelLabel = phrase.level;
+    const date = data.completedAt || '';
+    return `<div class="history-item">
+      <div class="history-item-rank ${rankCls}">${score >= 90 ? '🎖️' : score >= 75 ? '🏅' : score >= 60 ? '📋' : '🐣'}</div>
+      <div class="history-item-info">
+        <div class="history-item-name">${phrase.text}</div>
+        <div class="history-item-meta">${levelLabel}${date ? ' · ' + date : ''}</div>
+      </div>
+      <div class="history-item-score" style="color:${score >= 75 ? 'var(--primary-dark)' : score >= 60 ? 'var(--secondary-dark)' : 'var(--tertiary)'}">${score}</div>
+    </div>`;
+  }).join('');
+}
+
+// ===== Result Mascot (changes based on score) =====
+function updateResultMascot(score) {
+  const el = document.getElementById('mascot-result');
+  if (score >= 75) {
+    // Happy / celebrating
+    el.innerHTML = `
+      <ellipse cx="100" cy="120" rx="52" ry="56" fill="#FFB84D"/><ellipse cx="100" cy="120" rx="44" ry="48" fill="#FFCC66"/><ellipse cx="100" cy="132" rx="30" ry="28" fill="#FFF3D6"/>
+      <circle cx="82" cy="100" r="14" fill="#fff"/><circle cx="118" cy="100" r="14" fill="#fff"/>
+      <circle cx="85" cy="99" r="7" fill="#1A1A1B"/><circle cx="121" cy="99" r="7" fill="#1A1A1B"/>
+      <circle cx="87" cy="97" r="2.5" fill="#fff"/><circle cx="123" cy="97" r="2.5" fill="#fff"/>
+      <path d="M88 114 Q100 124 112 114" fill="none" stroke="#E94F64" stroke-width="3" stroke-linecap="round"/>
+      <ellipse cx="56" cy="110" rx="18" ry="30" fill="#2F80ED" transform="rotate(-40,56,110)"/>
+      <ellipse cx="144" cy="110" rx="18" ry="30" fill="#2F80ED" transform="rotate(40,144,110)"/>
+      <path d="M60 88 Q100 50 140 88" fill="none" stroke="#414753" stroke-width="6" stroke-linecap="round"/>
+      <rect x="48" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="132" y="82" width="20" height="28" rx="8" fill="#414753"/>
+      <text x="100" y="56" text-anchor="middle" font-size="20">🎉</text>
+      <ellipse cx="84" cy="174" rx="14" ry="6" fill="#D9952A"/><ellipse cx="116" cy="174" rx="14" ry="6" fill="#D9952A"/>
+    `;
+  } else {
+    // Encouraging / cheering
+    el.innerHTML = `
+      <ellipse cx="100" cy="120" rx="52" ry="56" fill="#FFB84D"/><ellipse cx="100" cy="120" rx="44" ry="48" fill="#FFCC66"/><ellipse cx="100" cy="132" rx="30" ry="28" fill="#FFF3D6"/>
+      <circle cx="82" cy="100" r="14" fill="#fff"/><circle cx="118" cy="100" r="14" fill="#fff"/>
+      <circle cx="85" cy="99" r="7" fill="#1A1A1B"/><circle cx="121" cy="99" r="7" fill="#1A1A1B"/>
+      <circle cx="87" cy="97" r="2.5" fill="#fff"/><circle cx="123" cy="97" r="2.5" fill="#fff"/>
+      <path d="M93 112 L100 118 L107 112 Z" fill="#E94F64"/>
+      <ellipse cx="56" cy="126" rx="18" ry="30" fill="#2F80ED" transform="rotate(-15,56,126)"/>
+      <ellipse cx="148" cy="116" rx="18" ry="30" fill="#2F80ED" transform="rotate(35,148,116)"/>
+      <path d="M60 88 Q100 50 140 88" fill="none" stroke="#414753" stroke-width="6" stroke-linecap="round"/>
+      <rect x="48" y="82" width="20" height="28" rx="8" fill="#414753"/><rect x="132" y="82" width="20" height="28" rx="8" fill="#414753"/>
+      <rect x="130" y="60" width="62" height="24" rx="10" fill="#fff" opacity="0.85"/>
+      <polygon points="136,78 142,84 148,78" fill="#fff" opacity="0.85"/>
+      <text x="161" y="76" text-anchor="middle" font-size="10" font-weight="700" fill="#1A1A1B">もう1回！</text>
+      <ellipse cx="84" cy="174" rx="14" ry="6" fill="#D9952A"/><ellipse cx="116" cy="174" rx="14" ry="6" fill="#D9952A"/>
+    `;
+  }
+}
+
+// ===== Streak =====
+function loadStreak() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('hayakuchi_streak') || '{}');
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    const twoDaysAgo = new Date(Date.now() - 86400000 * 2).toDateString();
+    if (saved.lastDate === today) {
+      state.streak = saved.count || 0;
+    } else if (saved.lastDate === yesterday) {
+      state.streak = saved.count || 0;
+    } else if (saved.lastDate === twoDaysAgo && (saved.count || 0) > 1) {
+      // 48-hour grace: keep streak but reduce by 1
+      state.streak = (saved.count || 0) - 1;
+    } else {
+      state.streak = 0;
+    }
+  } catch { state.streak = 0; }
+  updateStreakUI();
+}
+
+function incrementStreak() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('hayakuchi_streak') || '{}');
+    const today = new Date().toDateString();
+    if (saved.lastDate === today) return;
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    const twoDaysAgo = new Date(Date.now() - 86400000 * 2).toDateString();
+    if (saved.lastDate === yesterday) {
+      state.streak = (saved.count || 0) + 1;
+    } else if (saved.lastDate === twoDaysAgo && (saved.count || 0) > 0) {
+      // 48-hour grace: recover streak (no +1, just restore)
+      state.streak = saved.count || 1;
+    } else if (!saved.lastDate) {
+      state.streak = 1;
+    } else {
+      state.streak = 1;
+    }
+    localStorage.setItem('hayakuchi_streak', JSON.stringify({ lastDate: today, count: state.streak }));
+  } catch {}
+  updateStreakUI();
+}
+
+function updateStreakUI() {
+  const badge = document.getElementById('streak-badge');
+  const countEl = document.getElementById('streak-count');
+  if (state.streak > 0) {
+    badge.style.display = 'inline-flex';
+    countEl.textContent = state.streak;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// ===== Top Screen Rendering =====
+function renderTopScreen() {
+  state.progress = loadProgressData();
+  state.unlockedLevels = loadUnlockedLevels();
+  // Only auto-detect level on first render (when currentLevel hasn't been set by user)
+  if (!state.currentLevel || !state.unlockedLevels.includes(state.currentLevel)) {
+    state.currentLevel = getCurrentActiveLevel();
+  }
+
+  // Pick the next uncleared phrase within current level
+  const levelPhrases = state.phrases.filter(p => p.level === state.currentLevel);
+  const nextInLevel = levelPhrases.find(p => !isPhraseCleared(p.id));
+  if (!state.currentPhrase || state.currentPhrase.level !== state.currentLevel) {
+    state.currentPhrase = nextInLevel || null;
+  }
+
+  renderProgressPath();
+
+  // Update progress bar (only count cleared phrases, not just attempted)
+  const lvCompleted = levelPhrases.filter(p => isPhraseCleared(p.id)).length;
+  document.getElementById('path-progress-fill').style.width = (lvCompleted / levelPhrases.length * 100) + '%';
+  document.getElementById('path-progress-text').textContent = `${lvCompleted}/${levelPhrases.length}（${state.currentLevel}）`;
+}
+
+// updatePhraseCard is no longer needed — phrase card removed from top screen.
+// Challenge screen now shows phrase info directly.
+function updatePhraseCard() {
+  // No-op: phrase card UI elements have been removed from the top screen.
+}
+
+// ===== Progress Path (4列コンパクトグリッド) =====
+function renderProgressPath() {
+  const pathEl = document.getElementById('progress-path');
+  const progress = state.progress;
+  const phrases = state.phrases;
+  const nextId = getNextPhraseId();
+  const selectedId = state.currentPhrase ? state.currentPhrase.id : nextId;
+  const currentLevel = state.currentLevel;
+  const levelPhrases = phrases.filter(p => p.level === currentLevel);
+  let html = '';
+
+  // ── Level tabs ──
+  const tabsEl = document.getElementById('level-tabs');
+  let tabsHtml = '';
+  for (const level of LEVEL_ORDER) {
+    const isUnlocked = state.unlockedLevels.includes(level);
+    const isActive = level === currentLevel;
+    const isComplete = isLevelComplete(level);
+    let cls = 'level-tab';
+    if (isActive) cls += ' active';
+    if (!isUnlocked) cls += ' locked';
+    else if (isComplete && !isActive) cls += ' completed';
+    const icon = !isUnlocked ? '🔒 ' : isComplete ? '<span class="tile-check">✔</span> ' : '';
+    tabsHtml += `<button class="${cls}" ${!isUnlocked ? 'disabled' : ''} data-level="${level}">${icon}${level}</button>`;
+  }
+  tabsEl.innerHTML = tabsHtml;
+
+  // (Start marker & stage label removed — level tabs already convey this info)
+
+  // ── Build tile data ──
+  const tiles = levelPhrases.map((p, i) => {
+    const hasProgress = !!progress[p.id];
+    const cleared = isPhraseCleared(p.id);
+    const isCurrent = p.id === nextId;
+    const isSelected = p.id === selectedId;
+    let cls = cleared ? 'completed' : hasProgress ? 'attempted' : isCurrent ? 'current' : 'upcoming';
+    if (isSelected) cls += ' selected';
+    const best = progress[p.id]?.bestScore;
+    let icon;
+    if (cleared) {
+      icon = best >= 90 ? '🎖️' : '<span class="tile-check">✔</span>';
+    } else if (hasProgress) {
+      icon = `<span style="font-size:13px">${best}点</span>`;
+    } else if (isCurrent) {
+      icon = '▶';
+    } else {
+      icon = `<span style="font-size:14px">${i + 1}</span>`;
+    }
+    const scoreLabel = cleared && best != null ? `<div class="path-node-score">${best}点</div>` : '';
+    return { p, cls, icon, scoreLabel, isCurrent, cleared };
+  });
+
+  // ── Render compact grid ──
+  html += '<div class="game-board"><div class="board-grid">';
+
+  for (const t of tiles) {
+    const indicator = t.isCurrent ? '<div class="current-indicator">次のチャレンジ</div>' : '';
+    html += `<div class="path-node ${t.cls}" data-id="${t.p.id}">
+      ${indicator}
+      <div class="path-node-circle">${t.icon}</div>
+      <div class="path-node-text">${t.p.text}</div>
+      ${t.scoreLabel}
+    </div>`;
+  }
+
+  html += '</div></div>'; // .board-grid .game-board
+
+  // ── Level gate ──
+  const levelComplete = isLevelComplete(currentLevel);
+  const nextLevel = getNextLevel(currentLevel);
+  const allLevelsComplete = !nextLevel && levelComplete;
+
+  if (allLevelsComplete) {
+    html += `<div class="level-gate">
+      <div class="level-gate-celebration">🏆</div>
+      <div class="level-gate-title">全レベル制覇！</div>
+      <div class="level-gate-subtitle">すべてのマスをクリアしました。おめでとう！</div>
+    </div>`;
+  } else if (nextLevel) {
+    const isUnlocked = state.unlockedLevels.includes(nextLevel);
+    if (levelComplete && isUnlocked) {
+      html += `<div class="level-gate">
+        <div class="level-gate-divider">
+          <div class="level-gate-line"></div>
+          <div class="level-gate-icon">🔓</div>
+          <div class="level-gate-line"></div>
+        </div>
+        <div class="level-gate-title">${currentLevel} クリア！</div>
+        <div class="level-gate-subtitle">${nextLevel}に挑戦できます</div>
+        <button class="btn-unlock" onclick="goToLevel('${nextLevel}')">${nextLevel}に進む →</button>
+      </div>`;
+    } else if (levelComplete && !isUnlocked) {
+      html += `<div class="level-gate">
+        <div class="level-gate-divider">
+          <div class="level-gate-line"></div>
+          <div class="level-gate-icon">🔓</div>
+          <div class="level-gate-line"></div>
+        </div>
+        <div class="level-gate-title">${currentLevel} クリア！</div>
+        <div class="level-gate-subtitle">${nextLevel}が解放されました</div>
+        <button class="btn-unlock" onclick="goToLevel('${nextLevel}')">${nextLevel}に進む →</button>
+      </div>`;
+    } else {
+      const remaining = levelPhrases.filter(p => !isPhraseCleared(p.id)).length;
+      html += `<div class="level-gate">
+        <div class="level-gate-divider">
+          <div class="level-gate-line"></div>
+          <div class="level-gate-icon">🔒</div>
+          <div class="level-gate-line"></div>
+        </div>
+        <div class="level-gate-title">${nextLevel}</div>
+        <div class="level-gate-subtitle">あと${remaining}マスクリアで解放</div>
+      </div>`;
+    }
+  }
+
+  pathEl.innerHTML = html;
+}
+
+function goToLevel(level) {
+  state.currentLevel = level;
+  // Pick the first uncompleted phrase in the new level
+  const levelPhrases = state.phrases.filter(p => p.level === level);
+  const next = levelPhrases.find(p => !state.progress[p.id]) || levelPhrases[0];
+  state.currentPhrase = next;
+  renderTopScreen();
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function selectPhrase(id) {
+  const phrase = state.phrases.find(p => p.id === id);
+  if (!phrase) return;
+  state.currentPhrase = phrase;
+
+  // Directly start the challenge (2-tap flow: tap node -> record)
+  if (!state.stream) {
+    document.getElementById('mic-overlay').classList.add('active');
+    return;
+  }
+  startChallenge();
+}
+
+// ===== Speech Recognition Setup =====
+function setupSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    state.hasSpeechRecognition = false;
+    document.getElementById('fallback-notice').classList.add('visible');
+    return;
+  }
+  state.hasSpeechRecognition = true;
+  state.recognition = new SR();
+  state.recognition.lang = 'ja-JP';
+  state.recognition.continuous = true;
+  state.recognition.interimResults = false;
+  state.recognition.maxAlternatives = 3;
+  state.recognition.onresult = (e) => {
+    let text = '';
+    for (let i = 0; i < e.results.length; i++) {
+      text += e.results[i][0].transcript;
+    }
+    state.recognizedText = text;
+  };
+  state.recognition.onerror = (e) => {
+    console.warn('SpeechRecognition error:', e.error);
+    state.speechError = e.error;
+    if (e.error === 'no-speech') {
+      document.getElementById('record-hint').textContent = '声が検出できませんでした。もう一度お試しください';
+    } else if (e.error === 'audio-capture') {
+      document.getElementById('record-hint').textContent = 'マイクにアクセスできません';
+    } else if (e.error === 'not-allowed') {
+      document.getElementById('record-hint').textContent = 'マイクの許可が必要です';
+    }
+  };
+  state.recognition.onend = () => {
+    state.recognitionDone = true;
+  };
+}
+
+// ===== Audio Setup & Recording =====
+async function requestMic() {
+  try {
+    state.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function initAudioContext() {
+  if (state.audioCtx) return;
+  state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+async function startRecording() {
+  initAudioContext();
+  if (state.audioCtx.state === 'suspended') await state.audioCtx.resume();
+
+  state.rawSamples = [];
+  state.recognizedText = '';
+  state.recognitionDone = false;
+  state.speechError = null;
+
+  // Connect audio nodes
+  state.sourceNode = state.audioCtx.createMediaStreamSource(state.stream);
+  state.analyserNode = state.audioCtx.createAnalyser();
+  state.analyserNode.fftSize = 2048;
+  state.sourceNode.connect(state.analyserNode);
+
+  // ScriptProcessor to capture raw samples
+  const bufSize = 4096;
+  state.processorNode = state.audioCtx.createScriptProcessor(bufSize, 1, 1);
+  state.processorNode.onaudioprocess = (e) => {
+    if (!state.isRecording) return;
+    const data = e.inputBuffer.getChannelData(0);
+    state.rawSamples.push(new Float32Array(data));
+  };
+  state.sourceNode.connect(state.processorNode);
+  state.processorNode.connect(state.audioCtx.destination);
+
+  // Start speech recognition
+  if (state.hasSpeechRecognition && state.recognition) {
+    try { state.recognition.start(); } catch (err) {
+      console.warn('SpeechRecognition start failed:', err);
+      state.speechError = 'start-failed';
+    }
+  }
+
+  state.isRecording = true;
+  state.recordStartTime = performance.now();
+
+  // Timer
+  updateTimerDisplay();
+  state.timerInterval = setInterval(updateTimerDisplay, 100);
+
+  // Live waveform
+  drawLiveWaveform();
+
+  // Auto-stop after max time
+  setTimeout(() => { if (state.isRecording) stopRecording(); }, CONFIG.maxRecordSec * 1000);
+
+  // Recording progress bar
+  startRecordProgress();
+
+  // UI
+  document.getElementById('btn-record').classList.add('recording');
+  document.getElementById('record-hint').textContent = 'タップして停止';
+}
+
+function stopRecording() {
+  state.isRecording = false;
+  state.recordDuration = (performance.now() - state.recordStartTime) / 1000;
+
+  clearInterval(state.timerInterval);
+  cancelAnimationFrame(state.animFrameId);
+
+  // Stop speech recognition
+  if (state.recognition) {
+    try { state.recognition.stop(); } catch {}
+  }
+
+  // Disconnect audio nodes
+  if (state.processorNode) {
+    state.processorNode.disconnect();
+    state.processorNode = null;
+  }
+  if (state.sourceNode) {
+    state.sourceNode.disconnect();
+    state.sourceNode = null;
+  }
+
+  // Stop recording progress bar
+  stopRecordProgress();
+
+  // UI
+  document.getElementById('btn-record').classList.remove('recording');
+  document.getElementById('record-hint').textContent = 'タップして録音開始';
+
+  // Show analyzing overlay
+  document.getElementById('analyzing-overlay').classList.add('active');
+
+  // Wait for speech recognition to finish, then process
+  state.recognitionDone = !state.hasSpeechRecognition;
+  const waitForRecognition = () => {
+    if (state.recognitionDone) {
+      processResults();
+    } else {
+      setTimeout(waitForRecognition, 100);
+    }
+  };
+  // Start polling, with a hard timeout of 3s
+  setTimeout(waitForRecognition, 200);
+  setTimeout(() => { if (!state.recognitionDone) { state.recognitionDone = true; } }, 3000);
+}
+
+function updateTimerDisplay() {
+  if (!state.isRecording) return;
+  const elapsed = (performance.now() - state.recordStartTime) / 1000;
+  document.getElementById('timer').textContent = elapsed.toFixed(1);
+}
+
+// ===== Live Waveform =====
+function drawLiveWaveform() {
+  if (!state.isRecording) return;
+  const canvas = document.getElementById('waveform-live');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = rect.height;
+
+  const analyser = state.analyserNode;
+  const bufLen = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufLen);
+  analyser.getByteTimeDomainData(dataArray);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Draw bars
+  const barCount = 48;
+  const barWidth = (W - (barCount - 1) * 2) / barCount;
+  const step = Math.floor(bufLen / barCount);
+
+  for (let i = 0; i < barCount; i++) {
+    // Average amplitude for this bar
+    let sum = 0;
+    for (let j = 0; j < step; j++) {
+      const val = (dataArray[i * step + j] - 128) / 128;
+      sum += Math.abs(val);
+    }
+    const avg = sum / step;
+    const barH = Math.max(2, avg * H * 2.5);
+
+    const x = i * (barWidth + 2);
+    const y = (H - barH) / 2;
+
+    const gradient = ctx.createLinearGradient(x, y, x, y + barH);
+    gradient.addColorStop(0, '#2F80ED');
+    gradient.addColorStop(1, '#5A9CF5');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barWidth, barH, 2);
+    ctx.fill();
+  }
+
+  state.animFrameId = requestAnimationFrame(drawLiveWaveform);
+}
+
+// ===== Audio Analysis =====
+function mergeRawSamples() {
+  const totalLen = state.rawSamples.reduce((s, b) => s + b.length, 0);
+  const merged = new Float32Array(totalLen);
+  let offset = 0;
+  for (const buf of state.rawSamples) {
+    merged.set(buf, offset);
+    offset += buf.length;
+  }
+  return merged;
+}
+
+// Downsample raw audio to min/max peaks per bucket (for waveform drawing)
+function downsamplePeaks(samples, buckets) {
+  const bLen = Math.floor(samples.length / buckets);
+  const peaks = [];
+  for (let i = 0; i < buckets; i++) {
+    let min = 1, max = -1;
+    const start = i * bLen;
+    const end = Math.min(start + bLen, samples.length);
+    for (let j = start; j < end; j++) {
+      if (samples[j] < min) min = samples[j];
+      if (samples[j] > max) max = samples[j];
+    }
+    peaks.push({ min, max });
+  }
+  return peaks;
+}
+
+function calculateRMSEnvelope(samples, windowSize) {
+  const envelope = [];
+  for (let i = 0; i < samples.length; i += windowSize) {
+    let sum = 0;
+    const end = Math.min(i + windowSize, samples.length);
+    for (let j = i; j < end; j++) {
+      sum += samples[j] * samples[j];
+    }
+    envelope.push(Math.sqrt(sum / (end - i)));
+  }
+  return envelope;
+}
+
+function calculateAccuracy(recognized, phrase) {
+  if (!recognized || recognized.trim() === '') return 0;
+  const clean = s => s.replace(/[\s　、。！？!?,.\-\u3000]/g, '');
+  const toHira = s => s.replace(/[\u30A1-\u30F6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+
+  const r = clean(recognized);
+  // Compare with text (kanji match)
+  const t = clean(phrase.text);
+  const score1 = stringSimilarity(r, t);
+  // Compare with yomi (simple katakana→hiragana)
+  const rHira = toHira(r);
+  const score2 = stringSimilarity(rHira, phrase.yomi);
+  // Compare with yomi (ruby-aware kanji→hiragana conversion)
+  const rRuby = recognizedToHira(recognized, phrase);
+  const score3 = stringSimilarity(rRuby, phrase.yomi);
+
+  return Math.round(Math.max(score1, score2, score3) * 100);
+}
+
+function stringSimilarity(a, b) {
+  if (a.length === 0 && b.length === 0) return 1;
+  if (a.length === 0 || b.length === 0) return 0;
+  const dist = levenshtein(a, b);
+  return 1 - dist / Math.max(a.length, b.length);
+}
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) => {
+    const row = new Array(n + 1);
+    row[0] = i;
+    return row;
+  });
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j - 1], dp[i][j - 1], dp[i - 1][j]);
+      }
+    }
+  }
+  return dp[m][n];
+}
+
+function calculateSpeedScore(durationSec, yomiLength) {
+  // Target: ~6 chars/sec
+  const targetTime = yomiLength * 0.16;
+  if (durationSec <= 0) return 0;
+  const ratio = targetTime / durationSec;
+  return Math.round(Math.min(100, ratio * 100));
+}
+
+function calculateArticulation(envelope) {
+  if (envelope.length < 3) return 50;
+  const maxRMS = Math.max(...envelope);
+  if (maxRMS < 0.005) return 50;
+  const threshold = maxRMS * 0.15;
+
+  // Find onsets: transitions from below to above threshold
+  let totalSlope = 0;
+  let onsetCount = 0;
+  let belowCount = 0;
+  for (let i = 1; i < envelope.length; i++) {
+    if (envelope[i - 1] < threshold) {
+      belowCount++;
+    }
+    if (envelope[i - 1] < threshold && envelope[i] >= threshold) {
+      // Onset detected, measure slope over next few frames
+      let slopeSum = 0;
+      let slopeFrames = 0;
+      for (let j = i; j < Math.min(i + 4, envelope.length); j++) {
+        slopeSum += (envelope[j] - envelope[j - 1]);
+        slopeFrames++;
+      }
+      if (slopeFrames > 0) {
+        totalSlope += slopeSum / slopeFrames;
+        onsetCount++;
+      }
+    }
+  }
+  if (onsetCount === 0) return 60;
+  const avgSlope = totalSlope / onsetCount;
+  // Normalize: typical good slope is ~0.05-0.15
+  const score = Math.min(100, Math.round((avgSlope / 0.08) * 70 + 30));
+  return Math.max(20, Math.min(100, score));
+}
+
+function detectStumbles(envelope, windowMs, yomiLength) {
+  if (envelope.length < 5) return { count: 0, charPositions: [] };
+  const maxRMS = Math.max(...envelope);
+  if (maxRMS < 0.005) return { count: 0, charPositions: [] };
+  const threshold = maxRMS * 0.05;
+
+  // Find the speech region (first and last above-threshold frame)
+  let speechStart = 0, speechEnd = envelope.length - 1;
+  for (let i = 0; i < envelope.length; i++) {
+    if (envelope[i] > threshold) { speechStart = i; break; }
+  }
+  for (let i = envelope.length - 1; i >= 0; i--) {
+    if (envelope[i] > threshold) { speechEnd = i; break; }
+  }
+  if (speechEnd - speechStart < 3) return { count: 0, charPositions: [] };
+
+  // Detect gaps within speech region, recording their positions
+  let count = 0;
+  let gapFrames = 0;
+  let gapStartFrame = 0;
+  const minGapFrames = Math.ceil(CONFIG.stumbleGapMs / windowMs);
+  const gapMidpoints = []; // frame index where each gap occurs
+
+  for (let i = speechStart; i <= speechEnd; i++) {
+    if (envelope[i] < threshold) {
+      if (gapFrames === 0) gapStartFrame = i;
+      gapFrames++;
+    } else {
+      if (gapFrames >= minGapFrames) {
+        count++;
+        gapMidpoints.push(Math.round((gapStartFrame + i) / 2));
+      }
+      gapFrames = 0;
+    }
+  }
+  if (gapFrames >= minGapFrames) {
+    count++;
+    gapMidpoints.push(Math.round((gapStartFrame + speechEnd) / 2));
+  }
+
+  // Map gap frame positions to approximate character positions
+  const speechLen = speechEnd - speechStart;
+  const charPositions = gapMidpoints.map(frame => {
+    const ratio = (frame - speechStart) / speechLen;
+    return Math.min(yomiLength - 1, Math.max(0, Math.round(ratio * yomiLength)));
+  });
+
+  return { count, charPositions };
+}
+
+function countMispronunciations(recognized, phrase) {
+  if (!recognized || recognized.trim() === '') return 0;
+  const clean = s => s.replace(/[\s　、。！？!?,.\-\u3000]/g, '');
+  const toHira = s => s.replace(/[\u30A1-\u30F6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+  const a = toHira(clean(recognized));
+  // Compare against both yomi(hiragana) and text(kanji), take fewer errors
+  const bYomi = phrase.yomi;
+  const bText = toHira(clean(phrase.text));
+  if (a === bYomi || a === bText) return 0;
+  const c1 = countErrorClusters(a, bYomi);
+  const c2 = countErrorClusters(a, bText);
+  return Math.min(c1, c2);
+}
+function countErrorClusters(a, b) {
+  if (a === b) return 0;
+  // Levenshtein DP
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) => { const r = new Array(n + 1); r[0] = i; return r; });
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j-1], dp[i][j-1], dp[i-1][j]);
+    }
+  }
+  // Backtrace to find error positions
+  let i = m, j = n;
+  const ops = [];
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i-1] === b[j-1]) { ops.push(false); i--; j--; }
+    else if (i > 0 && j > 0 && dp[i][j] === dp[i-1][j-1] + 1) { ops.push(true); i--; j--; }
+    else if (j > 0 && dp[i][j] === dp[i][j-1] + 1) { ops.push(true); j--; }
+    else { ops.push(true); i--; }
+  }
+  ops.reverse();
+  // Count contiguous error clusters
+  let clusters = 0, inErr = false;
+  for (const e of ops) {
+    if (e && !inErr) { clusters++; inErr = true; }
+    else if (!e) { inErr = false; }
+  }
+  return clusters;
+}
+
+function calculateEnergy(samples) {
+  if (samples.length === 0) return 0;
+  let sum = 0;
+  for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+  const rms = Math.sqrt(sum / samples.length);
+  // Map RMS to 0-100 (typical speech RMS: 0.02 - 0.2)
+  const score = Math.min(100, Math.round((rms / 0.12) * 80));
+  return Math.max(5, score);
+}
+
+// ===== New Analysis Dimensions =====
+
+// Smoothness (fluency): penalize unnatural pauses/gaps within speech
+function calculateSmoothness(envelope, windowMs) {
+  if (envelope.length < 5) return 50;
+  const maxRMS = Math.max(...envelope);
+  if (maxRMS < 0.005) return 50;
+  const threshold = maxRMS * 0.08;
+
+  // Find speech region
+  let speechStart = 0, speechEnd = envelope.length - 1;
+  for (let i = 0; i < envelope.length; i++) {
+    if (envelope[i] > threshold) { speechStart = i; break; }
+  }
+  for (let i = envelope.length - 1; i >= 0; i--) {
+    if (envelope[i] > threshold) { speechEnd = i; break; }
+  }
+  if (speechEnd - speechStart < 3) return 50;
+
+  // Count total gap frames and gap events within speech
+  let gapFrames = 0;
+  let gapEvents = 0;
+  let inGap = false;
+  for (let i = speechStart; i <= speechEnd; i++) {
+    if (envelope[i] < threshold) {
+      gapFrames++;
+      if (!inGap) { gapEvents++; inGap = true; }
+    } else {
+      inGap = false;
+    }
+  }
+
+  const speechLen = speechEnd - speechStart + 1;
+  const gapRatio = gapFrames / speechLen;
+  // Perfect = 0 gaps. Heavy penalty for both gap count and total gap time
+  const score = Math.round(100 - gapRatio * 120 - gapEvents * 8);
+  return Math.max(10, Math.min(100, score));
+}
+
+// Rhythm: measure uniformity of syllable energy intervals
+function calculateRhythm(envelope, windowMs) {
+  if (envelope.length < 5) return 50;
+  const maxRMS = Math.max(...envelope);
+  if (maxRMS < 0.005) return 50;
+  const threshold = maxRMS * 0.15;
+
+  // Detect energy peaks (syllable onsets)
+  const peaks = [];
+  for (let i = 1; i < envelope.length - 1; i++) {
+    if (envelope[i] > threshold && envelope[i] >= envelope[i - 1] && envelope[i] >= envelope[i + 1]) {
+      // Avoid double-counting: must be at least 2 frames from last peak
+      if (peaks.length === 0 || i - peaks[peaks.length - 1] >= 2) {
+        peaks.push(i);
+      }
+    }
+  }
+
+  if (peaks.length < 3) return 60; // Not enough peaks to judge rhythm
+
+  // Calculate intervals between peaks
+  const intervals = [];
+  for (let i = 1; i < peaks.length; i++) {
+    intervals.push(peaks[i] - peaks[i - 1]);
+  }
+
+  // Coefficient of variation (lower = more uniform rhythm)
+  const mean = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+  const variance = intervals.reduce((sum, v) => sum + (v - mean) * (v - mean), 0) / intervals.length;
+  const cv = Math.sqrt(variance) / mean;
+
+  // cv of 0 = perfect, cv of 1+ = very irregular
+  const score = Math.round(100 - cv * 80);
+  return Math.max(10, Math.min(100, score));
+}
+
+// Volume consistency: how steady the voice projection is
+function calculateVolume(envelope) {
+  if (envelope.length < 3) return 50;
+  const maxRMS = Math.max(...envelope);
+  if (maxRMS < 0.005) return 50;
+  const threshold = maxRMS * 0.08;
+
+  // Only consider frames within speech (above threshold)
+  const speechFrames = envelope.filter(v => v > threshold);
+  if (speechFrames.length < 3) return 50;
+
+  // Average level (louder = better projection)
+  const avg = speechFrames.reduce((a, b) => a + b, 0) / speechFrames.length;
+  const projectionScore = Math.min(100, Math.round((avg / 0.10) * 70));
+
+  // Consistency (low variation = better)
+  const variance = speechFrames.reduce((sum, v) => sum + (v - avg) * (v - avg), 0) / speechFrames.length;
+  const cv = Math.sqrt(variance) / avg;
+  const consistencyScore = Math.round(100 - cv * 60);
+
+  const score = Math.round(projectionScore * 0.5 + consistencyScore * 0.5);
+  return Math.max(10, Math.min(100, score));
+}
+
+// Convert recognized text kanji to hiragana using phrase's ruby data
+function recognizedToHira(recognized, phrase) {
+  const clean = s => s.replace(/[\s　、。！？!?,.\-\u3000]/g, '');
+  const toHira = s => s.replace(/[\u30A1-\u30F6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+
+  let text = clean(recognized);
+
+  // Parse ruby HTML to build kanji→reading map (longer keys first to avoid partial matches)
+  if (phrase.ruby) {
+    const rubyPairs = [];
+    const regex = /<ruby>([^<]+)<rt>([^<]+)<\/rt><\/ruby>/g;
+    let match;
+    while ((match = regex.exec(phrase.ruby)) !== null) {
+      rubyPairs.push({ kanji: match[1], reading: match[2] });
+    }
+    // Sort by kanji length descending (replace longer matches first)
+    rubyPairs.sort((a, b) => b.kanji.length - a.kanji.length);
+    for (const pair of rubyPairs) {
+      text = text.split(pair.kanji).join(pair.reading);
+    }
+  }
+
+  return toHira(text);
+}
+
+// Character-level alignment using Levenshtein backtrace
+function alignCharacters(recognized, phrase) {
+  if (!recognized || recognized.trim() === '') return [];
+
+  const a = recognizedToHira(recognized, phrase);
+  const b = phrase.yomi; // already hiragana
+
+  const m = a.length, n = b.length;
+  if (m === 0 || n === 0) return b.split('').map(ch => ({ char: ch, type: 'miss' }));
+
+  // Build DP table
+  const dp = Array.from({ length: m + 1 }, (_, i) => { const r = new Array(n + 1); r[0] = i; return r; });
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j-1], dp[i][j-1], dp[i-1][j]);
+    }
+  }
+
+  // Backtrace — build combined alignment showing matches, misses, AND extras
+  let i = m, j = n;
+  const ops = [];
+
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i-1] === b[j-1]) {
+      ops.push({ type: 'match', char: b[j-1] });
+      i--; j--;
+    } else if (i > 0 && j > 0 && dp[i][j] === dp[i-1][j-1] + 1) {
+      ops.push({ type: 'wrong', char: b[j-1], actual: a[i-1] });
+      i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j] === dp[i][j-1] + 1)) {
+      ops.push({ type: 'miss', char: b[j-1] });
+      j--;
+    } else {
+      ops.push({ type: 'extra', char: a[i-1] });
+      i--;
+    }
+  }
+
+  ops.reverse();
+  return ops;
+}
+
+// ===== Scoring =====
+function calculateTotalScore(metrics) {
+  const stumblePenalty = Math.min(metrics.stumbles * 12, 50);
+  const stumbleScore = Math.max(0, 100 - stumblePenalty);
+  const w = CONFIG.weights;
+
+  let total;
+  if (metrics.accuracy === null) {
+    // No speech recognition: reweight
+    total = metrics.speed * 0.45 + metrics.articulation * 0.30 + stumbleScore * 0.25;
+  } else {
+    total = metrics.accuracy * w.accuracy
+          + metrics.speed * w.speed
+          + metrics.articulation * w.articulation
+          + stumbleScore * w.stumble;
+  }
+  return Math.round(Math.max(0, Math.min(100, total)));
+}
+
+function getRankTitle(score) {
+  if (score >= 90) return '👑 早口名人';
+  if (score >= 80) return '🏅 早口上手';
+  if (score >= 70) return '📋 滑舌見習い';
+  return '🐣 カミカミ初心者（伸びしろ◎）';
+}
+
+function getSpecialTitles(metrics) {
+  const specials = [];
+  if (metrics.speed >= 90) specials.push('⚡ 爆速の舌');
+  if (metrics.accuracy === 100) specials.push('🎯 ノーミス職人');
+  if (metrics.energy >= 90) specials.push('🔊 元気キング');
+  if (metrics.stumbles >= 3) specials.push('😂 カミカミ大賞');
+  return specials;
+}
+
+// ===== Process Results =====
+function processResults() {
+  const samples = mergeRawSamples();
+  const sampleRate = state.audioCtx ? state.audioCtx.sampleRate : CONFIG.sampleRate;
+  const windowSize = Math.round(sampleRate * CONFIG.analysisWindowMs / 1000);
+  const windowMs = CONFIG.analysisWindowMs;
+  const envelope = calculateRMSEnvelope(samples, windowSize);
+
+  const phrase = state.currentPhrase;
+  const accuracy = state.hasSpeechRecognition ? calculateAccuracy(state.recognizedText, phrase) : null;
+  const speed = calculateSpeedScore(state.recordDuration, phrase.yomi.length);
+  const articulation = calculateArticulation(envelope);
+  const stumbleResult = detectStumbles(envelope, windowMs, phrase.yomi.length);
+  const mispronounciations = state.hasSpeechRecognition ? countMispronunciations(state.recognizedText, phrase) : 0;
+  const stumbles = stumbleResult.count + mispronounciations;
+  const energy = calculateEnergy(samples);
+
+  const smoothness = calculateSmoothness(envelope, windowMs);
+  const rhythm = calculateRhythm(envelope, windowMs);
+  const volume = calculateVolume(envelope);
+  const charAlignment = state.hasSpeechRecognition ? alignCharacters(state.recognizedText, phrase) : null;
+
+  const metrics = { accuracy, speed, articulation, stumbles, energy, duration: state.recordDuration, smoothness, rhythm, volume, stumblePositions: stumbleResult.charPositions };
+  const totalScore = calculateTotalScore(metrics);
+  const rank = getRankTitle(totalScore);
+  const specials = getSpecialTitles(metrics);
+
+  // Save progress
+  saveProgressData(phrase.id, totalScore);
+
+  // Check if this completed a level
+  const phraseLevel = phrase.level;
+  const justCompletedLevel = isLevelComplete(phraseLevel);
+  const nextLevel = getNextLevel(phraseLevel);
+  const shouldShowLevelUp = justCompletedLevel && nextLevel && !state.unlockedLevels.includes(nextLevel);
+  if (shouldShowLevelUp) {
+    unlockLevel(nextLevel);
+    state.pendingLevelUp = { completedLevel: phraseLevel, nextLevel };
+  }
+
+  // Increment streak
+  incrementStreak();
+
+  // Hide analyzing overlay
+  document.getElementById('analyzing-overlay').classList.remove('active');
+
+  // Downsample raw audio for waveform drawing
+  const waveformData = downsamplePeaks(samples, 300);
+
+  // Show results (screen first, then draw charts so canvas has dimensions)
+  renderResults(phrase, totalScore, rank, specials, metrics, charAlignment);
+  updateResultMascot(totalScore);
+  showScreen('result');
+  requestAnimationFrame(() => {
+    drawResultWaveform(waveformData, envelope);
+    drawRadarChart({
+      accuracy: metrics.accuracy ?? 0,
+      speed: metrics.speed,
+      smoothness: metrics.smoothness,
+      rhythm: metrics.rhythm,
+      volume: metrics.volume,
+    });
+  });
+
+  // Confetti for high scores
+  if (totalScore >= 80) showConfetti();
+}
+
+// ===== Score Count-Up Animation =====
+function animateScoreCountUp(el, target) {
+  const duration = 800;
+  const start = performance.now();
+  el.textContent = '0';
+  function tick(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    // Ease-out cubic for a satisfying deceleration
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(eased * target);
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// ===== Render Results =====
+function renderResults(phrase, score, rank, specials, metrics, charAlignment) {
+  document.getElementById('result-phrase').textContent = phrase.text;
+  animateScoreCountUp(document.getElementById('result-score'), score);
+  document.getElementById('result-rank').textContent = rank;
+
+  // Specials
+  const specialsEl = document.getElementById('result-specials');
+  specialsEl.innerHTML = specials.map(s => `<span class="special-badge">${s}</span>`).join('');
+
+  // Character highlight
+  renderCharHighlight(charAlignment);
+
+  // Metrics grid
+  const grid = document.getElementById('metrics-grid');
+  grid.innerHTML = metricCard('⏱', metrics.duration.toFixed(1) + '秒', 'タイム')
+                 + metricCard('😬', metrics.stumbles + '回', 'カミカミ回数');
+
+  // Hide old transcript (replaced by character highlight)
+  document.getElementById('result-transcript-wrap').style.display = 'none';
+
+  // Store for sharing
+  state.lastResult = { phrase, score, rank, specials, metrics };
+
+  // Update "次のお題へ" button based on progress
+  const btnNext = document.getElementById('btn-next');
+  state.progress = loadProgressData();
+  const nextId = getNextPhraseId();
+  const levelJustCompleted = isLevelComplete(phrase.level);
+  const nextLevel = getNextLevel(phrase.level);
+
+  if (levelJustCompleted && nextLevel) {
+    btnNext.textContent = `${phrase.level}クリア！${nextLevel}へ →`;
+    btnNext.style.display = 'block';
+  } else if (nextId) {
+    btnNext.textContent = '次のお題へ →';
+    btnNext.style.display = 'block';
+  } else if (levelJustCompleted && !nextLevel) {
+    btnNext.textContent = '全レベル制覇！🎉';
+    btnNext.style.display = 'block';
+  } else {
+    btnNext.textContent = '次のお題へ →';
+    btnNext.style.display = 'block';
+  }
+}
+
+function metricCard(icon, value, label) {
+  return `<div class="metric-card">
+    <div class="metric-icon">${icon}</div>
+    <div class="metric-value">${value}</div>
+    <div class="metric-label">${label}</div>
+  </div>`;
+}
+
+// ===== Result Waveform =====
+function drawResultWaveform(peaks, envelope) {
+  const canvas = document.getElementById('waveform-result');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = rect.height;
+  const mid = H / 2;
+
+  if ((!peaks || peaks.length === 0) && (!envelope || envelope.length === 0)) return;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#0D1B2A';
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle vertical grid (time markers)
+  const durationSec = state.lastResult ? state.lastResult.metrics.duration : 0;
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x < W; x += W / 10) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  // Horizontal grid
+  for (let y = 0; y < H; y += H / 8) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Draw raw waveform (peaks min/max fill)
+  if (peaks && peaks.length > 0) {
+    const globalMax = peaks.reduce((m, p) => Math.max(m, Math.abs(p.min), Math.abs(p.max)), 0) || 1;
+    const n = peaks.length;
+    const xStep = W / n;
+
+    // Filled waveform area (max line on top, min line on bottom)
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, 'rgba(47,128,237,0.7)');
+    grad.addColorStop(0.35, 'rgba(90,156,245,0.5)');
+    grad.addColorStop(0.5, 'rgba(90,156,245,0.15)');
+    grad.addColorStop(0.65, 'rgba(90,156,245,0.5)');
+    grad.addColorStop(1, 'rgba(47,128,237,0.7)');
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    // Top edge (max values)
+    for (let i = 0; i < n; i++) {
+      const x = i * xStep;
+      const y = mid - (peaks[i].max / globalMax) * mid * 0.9;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    // Bottom edge (min values, reversed)
+    for (let i = n - 1; i >= 0; i--) {
+      const x = i * xStep;
+      const y = mid - (peaks[i].min / globalMax) * mid * 0.9;
+      ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // Bright edge lines
+    ctx.strokeStyle = 'rgba(47,128,237,0.9)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = i * xStep;
+      const y = mid - (peaks[i].max / globalMax) * mid * 0.9;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = i * xStep;
+      const y = mid - (peaks[i].min / globalMax) * mid * 0.9;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // RMS overlay (energy envelope) as subtle bright fill
+    if (envelope && envelope.length > 0) {
+      const maxRMS = Math.max(...envelope) || 1;
+      const envStep = envelope.length / n;
+      ctx.fillStyle = 'rgba(150,200,255,0.12)';
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const x = i * xStep;
+        const eIdx = Math.min(Math.floor(i * envStep), envelope.length - 1);
+        const val = envelope[eIdx] / maxRMS;
+        const y = mid - val * mid * 0.7;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      for (let i = n - 1; i >= 0; i--) {
+        const x = i * xStep;
+        const eIdx = Math.min(Math.floor(i * envStep), envelope.length - 1);
+        const val = envelope[eIdx] / maxRMS;
+        const y = mid + val * mid * 0.7;
+        ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  // Center line with glow
+  const glowGrad = ctx.createLinearGradient(0, mid - 4, 0, mid + 4);
+  glowGrad.addColorStop(0, 'rgba(47,128,237,0)');
+  glowGrad.addColorStop(0.5, 'rgba(47,128,237,0.25)');
+  glowGrad.addColorStop(1, 'rgba(47,128,237,0)');
+  ctx.fillStyle = glowGrad;
+  ctx.fillRect(0, mid - 4, W, 8);
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(W, mid); ctx.stroke();
+
+  // Time labels
+  if (durationSec > 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = '9px -apple-system, sans-serif';
+    ctx.textBaseline = 'bottom';
+    ctx.textAlign = 'left';
+    ctx.fillText('0s', 4, H - 3);
+    ctx.textAlign = 'right';
+    ctx.fillText(durationSec.toFixed(1) + 's', W - 4, H - 3);
+    ctx.textAlign = 'center';
+    ctx.fillText((durationSec / 2).toFixed(1) + 's', W / 2, H - 3);
+    ctx.textAlign = 'left';
+  }
+
+  // dB scale labels (left side)
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.font = '8px -apple-system, sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('0dB', 3, mid * 0.15);
+  ctx.fillText('-∞', 3, mid);
+}
+
+// ===== Radar Chart =====
+function drawRadarChart(scores) {
+  // scores: { accuracy, speed, smoothness, rhythm, volume }
+  const canvas = document.getElementById('radar-canvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = rect.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const cx = W / 2;
+  const cy = H / 2 + 4;
+  const radius = Math.min(W, H) * 0.38;
+
+  const labels = ['正確さ', 'スピード', 'なめらかさ', 'リズム', '声のハリ'];
+  const keys = ['accuracy', 'speed', 'smoothness', 'rhythm', 'volume'];
+  const n = labels.length;
+  const angleStep = (Math.PI * 2) / n;
+  const startAngle = -Math.PI / 2; // Start from top
+
+  // Helper: get point at axis i, value 0-100
+  function getPoint(i, value) {
+    const angle = startAngle + i * angleStep;
+    const r = (value / 100) * radius;
+    return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+  }
+
+  // Draw grid rings (20, 40, 60, 80, 100)
+  for (let level = 20; level <= 100; level += 20) {
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const p = getPoint(i % n, level);
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = level === 100 ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.06)';
+    ctx.lineWidth = level === 100 ? 1 : 0.5;
+    ctx.stroke();
+  }
+
+  // Draw axis lines
+  for (let i = 0; i < n; i++) {
+    const p = getPoint(i, 100);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(p.x, p.y);
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+
+  // Draw data polygon
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const val = scores[keys[i % n]] ?? 0;
+    const p = getPoint(i % n, val);
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(47, 128, 237, 0.15)';
+  ctx.fill();
+  ctx.strokeStyle = '#2F80ED';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Draw data points
+  for (let i = 0; i < n; i++) {
+    const val = scores[keys[i]] ?? 0;
+    const p = getPoint(i, val);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#2F80ED';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+  }
+
+  // Draw labels with scores
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '600 11px -apple-system, BlinkMacSystemFont, sans-serif';
+  for (let i = 0; i < n; i++) {
+    const val = scores[keys[i]] ?? 0;
+    const angle = startAngle + i * angleStep;
+    const labelR = radius + 24;
+    const lx = cx + labelR * Math.cos(angle);
+    const ly = cy + labelR * Math.sin(angle);
+
+    ctx.fillStyle = '#414753';
+    ctx.fillText(labels[i], lx, ly - 7);
+    ctx.fillStyle = '#2F80ED';
+    ctx.font = '800 13px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(val, lx, ly + 8);
+    ctx.font = '600 11px -apple-system, BlinkMacSystemFont, sans-serif';
+  }
+}
+
+// ===== Character Highlight Rendering =====
+function renderCharHighlight(alignment) {
+  const wrap = document.getElementById('char-highlight-wrap');
+  const el = document.getElementById('char-highlight');
+  if (!alignment || alignment.length === 0) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+
+  const matchCount = alignment.filter(a => a.type === 'match').length;
+  const hasExtras = alignment.some(a => a.type === 'extra');
+  const total = alignment.filter(a => a.type !== 'extra').length;
+
+  let html = `<div class="char-highlight-summary">${matchCount}/${total}文字 正解</div>`;
+
+  // Group consecutive extras into single "garbled" blocks
+  const grouped = [];
+  for (const a of alignment) {
+    if (a.type === 'extra') {
+      const last = grouped[grouped.length - 1];
+      if (last && last.type === 'garbled') {
+        last.count++;
+      } else {
+        grouped.push({ type: 'garbled', count: 1 });
+      }
+    } else {
+      grouped.push(a);
+    }
+  }
+
+  html += '<div class="char-highlight-cells">';
+  html += grouped.map(a => {
+    if (a.type === 'garbled') {
+      return '<span class="char-cell garbled" title="聞き取れず">…</span>';
+    }
+    if (a.type === 'wrong') {
+      return `<span class="char-cell wrong" title="「${a.actual}」と発音">${a.char}<span class="char-actual">${a.actual}</span></span>`;
+    }
+    return `<span class="char-cell ${a.type}">${a.char}</span>`;
+  }).join('');
+  html += '</div>';
+
+  html += '<div class="char-highlight-legend">';
+  html += '<span class="legend-item"><span class="legend-dot match"></span>正解</span>';
+  html += '<span class="legend-item"><span class="legend-dot wrong"></span>間違い</span>';
+  html += '<span class="legend-item"><span class="legend-dot miss"></span>飛ばした</span>';
+  if (hasExtras) {
+    html += '<span class="legend-item"><span class="legend-dot garbled"></span>聞き取れず</span>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ===== Confetti =====
+function showConfetti() {
+  const container = document.getElementById('confetti-container');
+  container.innerHTML = '';
+  const colors = ['#FFB84D', '#FFCC66', '#FDB64B', '#2F80ED', '#E94F64', '#F06B7E'];
+  for (let i = 0; i < 40; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.animationDelay = Math.random() * 1 + 's';
+    piece.style.animationDuration = (2 + Math.random() * 1.5) + 's';
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    piece.style.width = (6 + Math.random() * 8) + 'px';
+    piece.style.height = (6 + Math.random() * 8) + 'px';
+    container.appendChild(piece);
+  }
+  setTimeout(() => { container.innerHTML = ''; }, 4000);
+}
+
+// ===== Share =====
+function generateShareCard() {
+  const canvas = document.getElementById('share-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = 600, H = 600;
+  canvas.width = W;
+  canvas.height = H;
+
+  const r = state.lastResult;
+  if (!r) return null;
+
+  // Background gradient
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, '#FFB84D');
+  grad.addColorStop(1, '#FFCC66');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // White card
+  const cardX = 30, cardY = 30, cardW = W - 60, cardH = H - 60;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath();
+  ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+  ctx.fill();
+
+  // App name
+  ctx.fillStyle = '#704800';
+  ctx.font = '600 16px "Plus Jakarta Sans", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('早口言葉チャレンジ', W / 2, 75);
+
+  // Phrase
+  ctx.fillStyle = '#191C1E';
+  ctx.font = '700 22px "Plus Jakarta Sans", "Hiragino Sans", sans-serif';
+  const phraseText = r.phrase.text;
+  // Word wrap
+  const maxWidth = cardW - 60;
+  const words = phraseText.split('');
+  let line = '';
+  let lineY = 120;
+  const lines = [];
+  for (const ch of words) {
+    const test = line + ch;
+    if (ctx.measureText(test).width > maxWidth) {
+      lines.push(line);
+      line = ch;
+    } else {
+      line = test;
+    }
+  }
+  lines.push(line);
+  for (const l of lines) {
+    ctx.fillText(l, W / 2, lineY);
+    lineY += 32;
+  }
+
+  // Score circle
+  const circleY = Math.max(lineY + 40, 200);
+  ctx.beginPath();
+  ctx.arc(W / 2, circleY, 60, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,184,77,0.15)';
+  ctx.fill();
+  ctx.strokeStyle = '#FFB84D';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.fillStyle = '#191C1E';
+  ctx.font = '800 48px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(r.score, W / 2, circleY + 16);
+  ctx.fillStyle = '#727785';
+  ctx.font = '600 12px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText('SCORE', W / 2, circleY + 36);
+
+  // Rank
+  ctx.fillStyle = '#191C1E';
+  ctx.font = '700 20px "Plus Jakarta Sans", "Hiragino Sans", sans-serif';
+  ctx.fillText(r.rank, W / 2, circleY + 90);
+
+  // Specials
+  if (r.specials.length > 0) {
+    ctx.font = '600 14px "Plus Jakarta Sans", "Hiragino Sans", sans-serif';
+    ctx.fillStyle = '#704800';
+    ctx.fillText(r.specials.join(' '), W / 2, circleY + 118);
+  }
+
+  // Metrics row
+  const metricsY = circleY + 155;
+  ctx.fillStyle = '#414753';
+  ctx.font = '600 14px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(`⏱ ${r.metrics.duration.toFixed(1)}秒  |  😬 カミカミ${r.metrics.stumbles}回`, W / 2, metricsY);
+
+  // Emoji grid (Wordle-style: show score as colored blocks)
+  const gridY = metricsY + 40;
+  const blockSize = 18;
+  const gap = 4;
+  const totalBlocks = 10;
+  const filledBlocks = Math.round(r.score / 10);
+  const totalWidth = totalBlocks * (blockSize + gap) - gap;
+  const startX = (W - totalWidth) / 2;
+  for (let i = 0; i < totalBlocks; i++) {
+    ctx.fillStyle = i < filledBlocks ? '#2F80ED' : '#D5CCBB';
+    ctx.beginPath();
+    ctx.roundRect(startX + i * (blockSize + gap), gridY, blockSize, blockSize, 4);
+    ctx.fill();
+  }
+
+  // Footer
+  ctx.fillStyle = '#727785';
+  ctx.font = '500 13px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText('🦜 hayakuchi-challenge.app', W / 2, H - 52);
+
+  return canvas;
+}
+
+async function shareResult() {
+  const canvas = generateShareCard();
+  if (!canvas) return;
+
+  const r = state.lastResult;
+  const blocks = '🟦'.repeat(Math.round(r.score / 10)) + '⬜'.repeat(10 - Math.round(r.score / 10));
+  const text = `早口言葉チャレンジ\n「${r.phrase.text}」\n${r.score}点 ${r.rank}\n${blocks}`;
+
+  // Try Web Share API with image
+  if (navigator.share && navigator.canShare) {
+    try {
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const file = new File([blob], 'hayakuchi-result.png', { type: 'image/png' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ text, files: [file] });
+        return;
+      }
+    } catch (e) {
+      if (e.name === 'AbortError') return; // User cancelled
+    }
+  }
+
+  // Try Web Share API text-only
+  if (navigator.share) {
+    try {
+      await navigator.share({ text });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  // Fallback: copy to clipboard
+  try {
+    await navigator.clipboard.writeText(text);
+    showShareToast('コピーしました！');
+  } catch {
+    showShareToast('シェアできませんでした');
+  }
+}
+
+function showShareToast(msg) {
+  const toast = document.getElementById('share-toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ===== Today's Challenge (今日のお題) =====
+function getTodayChallenge() {
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  // Deterministic seed from date string
+  let hash = 0;
+  for (let i = 0; i < dateStr.length; i++) {
+    hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
+    hash |= 0;
+  }
+  // Pick from all phrases (across all unlocked levels)
+  const allPhrases = state.phrases;
+  const idx = Math.abs(hash) % allPhrases.length;
+  return { phrase: allPhrases[idx], dateStr };
+}
+
+function renderTodayBadge() {
+  const { phrase } = getTodayChallenge();
+  const card = document.getElementById('today-card');
+  if (!phrase) return;
+
+  const cleared = isPhraseCleared(phrase.id);
+  const best = state.progress[phrase.id]?.bestScore;
+
+  document.getElementById('today-card-phrase').innerHTML = phrase.ruby || phrase.text;
+
+  const btn = document.getElementById('today-card-btn');
+  if (cleared) {
+    document.getElementById('today-card-meta').textContent = `✅ クリア済み · ベスト ${best}点`;
+    btn.textContent = 'もう一度チャレンジ';
+    card.classList.add('cleared');
+  } else {
+    document.getElementById('today-card-meta').textContent = `${phrase.level} · ${state.streak > 0 ? state.streak + '日連続' : 'はじめての1日目'}`;
+    btn.textContent = 'チャレンジする →';
+    card.classList.remove('cleared');
+  }
+
+  card.style.display = 'block';
+  btn.onclick = () => {
+    state.currentPhrase = phrase;
+    if (state.currentLevel !== phrase.level) {
+      if (state.unlockedLevels.includes(phrase.level)) {
+        state.currentLevel = phrase.level;
+      }
+    }
+    if (!state.stream) {
+      document.getElementById('mic-overlay').classList.add('active');
+      return;
+    }
+    startChallenge();
+  };
+}
+
+// ===== Recording Progress Bar =====
+function startRecordProgress() {
+  const bar = document.getElementById('record-progress');
+  const fill = document.getElementById('record-progress-fill');
+  bar.classList.add('active');
+  const ENDOWED = 10; // Endowed Progress: start at 10% to motivate completion
+  fill.style.width = ENDOWED + '%';
+
+  state.progressInterval = setInterval(() => {
+    if (!state.isRecording) {
+      clearInterval(state.progressInterval);
+      return;
+    }
+    const elapsed = (performance.now() - state.recordStartTime) / 1000;
+    const pct = Math.min(ENDOWED + (elapsed / CONFIG.maxRecordSec) * (100 - ENDOWED), 100);
+    fill.style.width = pct + '%';
+  }, 100);
+}
+
+function stopRecordProgress() {
+  clearInterval(state.progressInterval);
+  const bar = document.getElementById('record-progress');
+  bar.classList.remove('active');
+}
+
+// ===== Event Handlers =====
+function setupEventListeners() {
+  // Progress path node click — directly starts challenge (2-tap flow)
+  document.getElementById('progress-path').addEventListener('click', async (e) => {
+    const node = e.target.closest('.path-node');
+    if (!node) return;
+    const id = node.dataset.id;
+    selectPhrase(id);
+  });
+
+  // Mic permission
+  document.getElementById('btn-mic-allow').addEventListener('click', async () => {
+    const ok = await requestMic();
+    if (ok) {
+      document.getElementById('mic-overlay').classList.remove('active');
+      document.getElementById('mic-error').style.display = 'none';
+      startChallenge();
+    } else {
+      document.getElementById('mic-error').style.display = 'block';
+    }
+  });
+
+  // Record button
+  document.getElementById('btn-record').addEventListener('click', () => {
+    if (state.isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  });
+
+  // Back from challenge
+  document.getElementById('btn-challenge-back').addEventListener('click', () => {
+    if (state.isRecording) stopRecording();
+    cleanupAudio();
+    showScreen('top');
+  });
+
+  // Retry
+  document.getElementById('btn-retry').addEventListener('click', () => {
+    startChallenge();
+  });
+
+  // Share
+
+  // Next phrase
+  document.getElementById('btn-next').addEventListener('click', () => {
+    state.progress = loadProgressData();
+    state.unlockedLevels = loadUnlockedLevels();
+
+    // Check if we should show level-up celebration
+    if (state.pendingLevelUp) {
+      showLevelUpCelebration(state.pendingLevelUp.completedLevel, state.pendingLevelUp.nextLevel);
+      state.pendingLevelUp = null;
+      return;
+    }
+
+    // Find next uncleared phrase WITHIN the current level only
+    const currentLevel = state.currentLevel;
+    const levelPhrases = state.phrases.filter(p => p.level === currentLevel);
+    const nextInLevel = levelPhrases.find(p => !isPhraseCleared(p.id));
+
+    if (nextInLevel) {
+      state.currentPhrase = nextInLevel;
+      showScreen('top');
+      renderTopScreen();
+      setTimeout(() => {
+        const cur = document.querySelector('.path-node.current');
+        if (cur) cur.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 150);
+    } else {
+      // Current level complete — go back to top showing the completed level
+      state.currentPhrase = null;
+      showScreen('top');
+      renderTopScreen();
+    }
+  });
+
+  // Home
+  document.getElementById('btn-home').addEventListener('click', () => {
+    state.pendingLevelUp = null;
+    showScreen('top');
+    renderTopScreen();
+  });
+
+  // Share
+  document.getElementById('btn-share').addEventListener('click', () => {
+    shareResult();
+  });
+
+  // Level tabs
+  document.getElementById('level-tabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('.level-tab');
+    if (!tab || tab.disabled) return;
+    const level = tab.dataset.level;
+    if (level && state.unlockedLevels.includes(level)) {
+      goToLevel(level);
+    }
+  });
+
+  // Level-up button — advance to next level
+  document.getElementById('btn-levelup').addEventListener('click', () => {
+    const overlay = document.getElementById('levelup-overlay');
+    const nextLevel = overlay.dataset.nextLevel;
+    overlay.classList.remove('active');
+    showScreen('top');
+    if (nextLevel) {
+      goToLevel(nextLevel);
+    } else {
+      renderTopScreen();
+    }
+  });
+
+  // Level-up stay button — stay on current level for more practice
+  document.getElementById('btn-levelup-stay').addEventListener('click', () => {
+    document.getElementById('levelup-overlay').classList.remove('active');
+    showScreen('top');
+    renderTopScreen();
+  });
+
+  // Reset button — show confirmation overlay
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    document.getElementById('reset-overlay').classList.add('active');
+  });
+
+  // Reset cancel
+  document.getElementById('btn-reset-cancel').addEventListener('click', () => {
+    document.getElementById('reset-overlay').classList.remove('active');
+  });
+
+  // Reset confirm — clear all progress data
+  document.getElementById('btn-reset-confirm').addEventListener('click', () => {
+    localStorage.removeItem('hayakuchi_progress');
+    localStorage.removeItem('hayakuchi_levels');
+    localStorage.removeItem('hayakuchi_streak');
+    state.progress = {};
+    state.unlockedLevels = ['初級'];
+    state.currentLevel = '初級';
+    state.currentPhrase = null;
+    state.pendingLevelUp = null;
+    document.getElementById('reset-overlay').classList.remove('active');
+    renderTopScreen();
+  });
+}
+
+// ===== Level Up Celebration =====
+function showLevelUpCelebration(completedLevel, nextLevel) {
+  const overlay = document.getElementById('levelup-overlay');
+  const levelIcons = { '初級': '🎖️', '中級': '🏆', '激ムズ': '👑' };
+  const levelMessages = {
+    '初級': { title: '初級クリア！', desc: '基本はバッチリ！\n中級のお題が解放されました。' },
+    '中級': { title: '中級クリア！', desc: 'すごい！\n激ムズのお題が解放されました。' },
+    '激ムズ': { title: '全レベル制覇！', desc: 'おめでとう！\nすべてのお題をクリアしました！' },
+  };
+
+  const msg = levelMessages[completedLevel] || levelMessages['初級'];
+  document.getElementById('levelup-icon').textContent = levelIcons[completedLevel] || '🎉';
+  document.getElementById('levelup-title').textContent = msg.title;
+  document.getElementById('levelup-desc').textContent = msg.desc;
+
+  // Stars based on average score
+  const levelPhrases = state.phrases.filter(p => p.level === completedLevel);
+  const avgScore = levelPhrases.reduce((sum, p) => sum + (state.progress[p.id]?.bestScore || 0), 0) / levelPhrases.length;
+  let stars = '🎖️';
+  if (avgScore >= 60) stars = '🎖️🎖️';
+  if (avgScore >= 80) stars = '🎖️🎖️🎖️';
+  document.getElementById('levelup-stars').textContent = stars;
+
+  // Store next level for the button handler
+  overlay.dataset.nextLevel = nextLevel || '';
+
+  if (nextLevel) {
+    document.getElementById('btn-levelup').textContent = `${nextLevel}に進む →`;
+    document.getElementById('btn-levelup-stay').style.display = 'block';
+  } else {
+    document.getElementById('btn-levelup').textContent = 'おめでとう！🎉';
+    document.getElementById('btn-levelup-stay').style.display = 'none';
+  }
+
+  overlay.classList.add('active');
+  showConfetti();
+}
+
+function startChallenge() {
+  const phrase = state.currentPhrase;
+  if (!phrase) return;
+
+  // Show ruby in challenge screen
+  const challengePhraseEl = document.getElementById('challenge-phrase');
+  if (phrase.ruby) {
+    challengePhraseEl.innerHTML = phrase.ruby;
+  } else {
+    challengePhraseEl.textContent = phrase.text;
+  }
+
+  // Show yomi
+  document.getElementById('challenge-yomi').textContent = phrase.yomi;
+
+  // Show point card on challenge screen
+  document.getElementById('challenge-point-text').textContent = phrase.point;
+
+  document.getElementById('timer').textContent = '0.0';
+  // Clear live waveform
+  const canvas = document.getElementById('waveform-live');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  showScreen('challenge');
+
+  // Re-initialize speech recognition for fresh session
+  if (state.hasSpeechRecognition) {
+    setupSpeechRecognition();
+  }
+}
+
+function cleanupAudio() {
+  if (state.processorNode) { state.processorNode.disconnect(); state.processorNode = null; }
+  if (state.sourceNode) { state.sourceNode.disconnect(); state.sourceNode = null; }
+  clearInterval(state.timerInterval);
+  cancelAnimationFrame(state.animFrameId);
+}
+
+// ===== Polyfill: roundRect =====
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    if (typeof r === 'number') r = [r, r, r, r];
+    this.moveTo(x + r[0], y);
+    this.lineTo(x + w - r[1], y);
+    this.quadraticCurveTo(x + w, y, x + w, y + r[1]);
+    this.lineTo(x + w, y + h - r[2]);
+    this.quadraticCurveTo(x + w, y + h, x + w - r[2], y + h);
+    this.lineTo(x + r[3], y + h);
+    this.quadraticCurveTo(x, y + h, x, y + h - r[3]);
+    this.lineTo(x, y + r[0]);
+    this.quadraticCurveTo(x, y, x + r[0], y);
+    this.closePath();
+  };
+}
+
+// ===== PWA Registration =====
+async function registerSW() {
+  if ('serviceWorker' in navigator) {
+    try { await navigator.serviceWorker.register('sw.js'); }
+    catch (e) { console.log('SW registration skipped:', e); }
+  }
+}
+
+// ===== Init =====
+async function init() {
+  migrateIfNeeded();
+  await loadPhrases();
+  setupSpeechRecognition();
+  loadStreak();
+  state.progress = loadProgressData();
+  state.unlockedLevels = loadUnlockedLevels();
+  syncUnlockedLevelsWithProgress();
+  state.currentLevel = getCurrentActiveLevel();
+  renderTopScreen();
+  renderTodayBadge();
+  setupEventListeners();
+  setupBottomNav();
+  registerSW();
+
+  // Dismiss splash screen after 1.5s
+  setTimeout(dismissSplash, 1500);
+
+  // Auto-scroll to current node after splash
+  setTimeout(() => {
+    const cur = document.querySelector('.path-node.current');
+    if (cur) cur.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 1800);
+}
+
+init();
+</script>
+</body>
+</html>
