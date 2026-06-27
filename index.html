@@ -1195,6 +1195,16 @@ body {
 }
 .path-node.completed .path-node-score { color: var(--primary); }
 
+/* ===== Hidden count teaser ===== */
+.hidden-count-teaser {
+  text-align: center;
+  padding: 16px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--outline);
+  letter-spacing: 0.5px;
+}
+
 /* ===== Ruby (Furigana) ===== */
 .challenge-phrase ruby {
   ruby-position: over;
@@ -2227,11 +2237,15 @@ function renderProgressPath() {
 
   // (Start marker & stage label removed — level tabs already convey this info)
 
-  // ── Build tile data ──
+  // ── Build tile data with progressive reveal ──
+  // Show: cleared + attempted + current + next 3 upcoming. Hide the rest.
+  const PREVIEW_COUNT = 3;
+  let currentIndex = -1;
   const tiles = levelPhrases.map((p, i) => {
     const hasProgress = !!progress[p.id];
     const cleared = isPhraseCleared(p.id);
     const isCurrent = p.id === nextId;
+    if (isCurrent) currentIndex = i;
     const isSelected = p.id === selectedId;
     let cls = cleared ? 'completed' : hasProgress ? 'attempted' : isCurrent ? 'current' : 'upcoming';
     if (isSelected) cls += ' selected';
@@ -2244,26 +2258,41 @@ function renderProgressPath() {
     } else if (isCurrent) {
       icon = '▶';
     } else {
-      icon = `<span style="font-size:14px">${i + 1}</span>`;
+      icon = '🔒';
     }
     const scoreLabel = cleared && best != null ? `<div class="path-node-score">${best}点</div>` : '';
-    return { p, cls, icon, scoreLabel, isCurrent, cleared };
+    return { p, cls, icon, scoreLabel, isCurrent, cleared, hasProgress, index: i };
   });
+
+  // Determine visibility: show cleared/attempted/current + next PREVIEW_COUNT
+  const cutoff = currentIndex === -1
+    ? levelPhrases.length  // all cleared — show everything
+    : currentIndex + 1 + PREVIEW_COUNT;
+  const visibleTiles = tiles.filter(t => t.cleared || t.hasProgress || t.isCurrent || t.index < cutoff);
+  const hiddenCount = levelPhrases.length - visibleTiles.length;
 
   // ── Render compact grid ──
   html += '<div class="game-board"><div class="board-grid">';
 
-  for (const t of tiles) {
+  for (const t of visibleTiles) {
     const indicator = t.isCurrent ? '<div class="current-indicator">次のチャレンジ</div>' : '';
-    html += `<div class="path-node ${t.cls}" data-id="${t.p.id}">
+    const clickable = t.cleared || t.hasProgress || t.isCurrent;
+    html += `<div class="path-node ${t.cls}" data-id="${clickable ? t.p.id : ''}" ${!clickable ? 'style="pointer-events:none"' : ''}>
       ${indicator}
       <div class="path-node-circle">${t.icon}</div>
-      <div class="path-node-text">${t.p.text}</div>
+      <div class="path-node-text">${t.cleared || t.hasProgress || t.isCurrent ? t.p.text : '???'}</div>
       ${t.scoreLabel}
     </div>`;
   }
 
-  html += '</div></div>'; // .board-grid .game-board
+  html += '</div>';
+
+  // "More to come" teaser
+  if (hiddenCount > 0) {
+    html += `<div class="hidden-count-teaser">まだまだ続くよ… あと ${hiddenCount} 問</div>`;
+  }
+
+  html += '</div>'; // .game-board
 
   // ── Level gate ──
   const levelComplete = isLevelComplete(currentLevel);
