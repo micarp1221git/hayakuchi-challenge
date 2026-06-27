@@ -3178,24 +3178,26 @@ function renderResults(phrase, score, rank, specials, metrics, charAlignment) {
   // Store for sharing
   state.lastResult = { phrase, score, rank, specials, metrics };
 
-  // Update "次のお題へ" button based on progress
+  // Update "次のお題へ" button — only show if this phrase was cleared
   const btnNext = document.getElementById('btn-next');
+  const justCleared = score >= CLEAR_SCORE;
   state.progress = loadProgressData();
-  const nextId = getNextPhraseId();
-  const levelJustCompleted = isLevelComplete(phrase.level);
-  const nextLevel = getNextLevel(phrase.level);
 
-  if (levelJustCompleted && nextLevel) {
-    btnNext.textContent = `${phrase.level}クリア！${nextLevel}へ →`;
-    btnNext.style.display = 'block';
-  } else if (nextId) {
-    btnNext.textContent = '次のお題へ →';
-    btnNext.style.display = 'block';
-  } else if (levelJustCompleted && !nextLevel) {
-    btnNext.textContent = '全レベル制覇！🎉';
-    btnNext.style.display = 'block';
+  if (!justCleared) {
+    // Not cleared: hide next button, encourage retry
+    btnNext.style.display = 'none';
   } else {
-    btnNext.textContent = '次のお題へ →';
+    const nextId = getNextPhraseId();
+    const levelJustCompleted = isLevelComplete(phrase.level);
+    const nextLevel = getNextLevel(phrase.level);
+
+    if (levelJustCompleted && nextLevel) {
+      btnNext.textContent = `${phrase.level}クリア！${nextLevel}へ →`;
+    } else if (levelJustCompleted && !nextLevel) {
+      btnNext.textContent = '全レベル制覇！🎉';
+    } else {
+      btnNext.textContent = '次のお題へ →';
+    }
     btnNext.style.display = 'block';
   }
 }
