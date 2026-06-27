@@ -2228,6 +2228,7 @@ function renderTopScreen() {
   }
 
   renderProgressPath();
+  renderTodayBadge();
 
   // Update progress bar (only count cleared phrases, not just attempted)
   const lvCompleted = levelPhrases.filter(p => isPhraseCleared(p.id)).length;
