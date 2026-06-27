@@ -1195,7 +1195,40 @@ body {
 }
 .path-node.completed .path-node-score { color: var(--primary); }
 
-/* ===== Hidden count teaser ===== */
+/* ===== Set-based progress UI ===== */
+.completed-sets-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.set-badge-done {
+  display: inline-block;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--rounded);
+}
+.set-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.set-header-label {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--on-surface);
+}
+.set-header-progress {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--secondary-dark);
+}
 .hidden-count-teaser {
   text-align: center;
   padding: 16px 0 8px;
@@ -2237,15 +2270,63 @@ function renderProgressPath() {
 
   // (Start marker & stage label removed — level tabs already convey this info)
 
-  // ── Build tile data with progressive reveal ──
-  // Show: cleared + attempted + current + next 3 upcoming. Hide the rest.
-  const PREVIEW_COUNT = 3;
-  let currentIndex = -1;
-  const tiles = levelPhrases.map((p, i) => {
+  // ── Set-based progressive reveal (5個×Nセット) ──
+  const SET_SIZE = 5;
+  const sets = [];
+  for (let i = 0; i < levelPhrases.length; i += SET_SIZE) {
+    sets.push(levelPhrases.slice(i, i + SET_SIZE));
+  }
+
+  // Find current set (first set with uncleared phrases)
+  let currentSetIdx = sets.findIndex(set =>
+    set.some(p => !isPhraseCleared(p.id))
+  );
+  const allSetsCleared = currentSetIdx === -1;
+  if (allSetsCleared) currentSetIdx = sets.length - 1;
+
+  // ── Completed sets: compact badges ──
+  if (currentSetIdx > 0) {
+    html += '<div class="completed-sets-row">';
+    for (let s = 0; s < currentSetIdx; s++) {
+      html += `<span class="set-badge-done">セット${s + 1} ✔</span>`;
+    }
+    html += '</div>';
+  }
+
+  // ── Current set: header + tiles ──
+  const currentSet = sets[currentSetIdx];
+  const clearedInSet = currentSet.filter(p => isPhraseCleared(p.id)).length;
+  const totalInSet = currentSet.length;
+  const remainingInSet = totalInSet - clearedInSet;
+  const setNum = currentSetIdx + 1;
+
+  // Set header with Small-Area progress framing
+  let progressMsg;
+  if (allSetsCleared) {
+    progressMsg = 'コンプリート！';
+  } else if (clearedInSet === 0) {
+    progressMsg = '';
+  } else if (clearedInSet <= totalInSet / 2) {
+    // Early: show completed count
+    progressMsg = `${clearedInSet}つクリア！`;
+  } else {
+    // Late: show remaining count
+    progressMsg = `あと${remainingInSet}つ！`;
+  }
+
+  html += `<div class="set-header">
+    <span class="set-header-label">セット${setNum}</span>
+    ${progressMsg ? `<span class="set-header-progress">${progressMsg}</span>` : ''}
+  </div>`;
+
+  // Tiles for current set
+  html += '<div class="game-board"><div class="board-grid">';
+
+  for (let i = 0; i < currentSet.length; i++) {
+    const p = currentSet[i];
     const hasProgress = !!progress[p.id];
     const cleared = isPhraseCleared(p.id);
     const isCurrent = p.id === nextId;
-    if (isCurrent) currentIndex = i;
     const isSelected = p.id === selectedId;
     let cls = cleared ? 'completed' : hasProgress ? 'attempted' : isCurrent ? 'current' : 'upcoming';
     if (isSelected) cls += ' selected';
@@ -2261,38 +2342,23 @@ function renderProgressPath() {
       icon = '🔒';
     }
     const scoreLabel = cleared && best != null ? `<div class="path-node-score">${best}点</div>` : '';
-    return { p, cls, icon, scoreLabel, isCurrent, cleared, hasProgress, index: i };
-  });
-
-  // Determine visibility: show cleared/attempted/current + next PREVIEW_COUNT
-  const cutoff = currentIndex === -1
-    ? levelPhrases.length  // all cleared — show everything
-    : currentIndex + 1 + PREVIEW_COUNT;
-  const visibleTiles = tiles.filter(t => t.cleared || t.hasProgress || t.isCurrent || t.index < cutoff);
-  const hiddenCount = levelPhrases.length - visibleTiles.length;
-
-  // ── Render compact grid ──
-  html += '<div class="game-board"><div class="board-grid">';
-
-  for (const t of visibleTiles) {
-    const indicator = t.isCurrent ? '<div class="current-indicator">次のチャレンジ</div>' : '';
-    const clickable = t.cleared || t.hasProgress || t.isCurrent;
-    html += `<div class="path-node ${t.cls}" data-id="${clickable ? t.p.id : ''}" ${!clickable ? 'style="pointer-events:none"' : ''}>
+    const indicator = isCurrent ? '<div class="current-indicator">次のチャレンジ</div>' : '';
+    const clickable = cleared || hasProgress || isCurrent;
+    html += `<div class="path-node ${cls}" data-id="${clickable ? p.id : ''}" ${!clickable ? 'style="pointer-events:none"' : ''}>
       ${indicator}
-      <div class="path-node-circle">${t.icon}</div>
-      <div class="path-node-text">${t.cleared || t.hasProgress || t.isCurrent ? t.p.text : '???'}</div>
-      ${t.scoreLabel}
+      <div class="path-node-circle">${icon}</div>
+      <div class="path-node-text">${clickable ? p.text : '???'}</div>
+      ${scoreLabel}
     </div>`;
   }
 
-  html += '</div>';
+  html += '</div></div>'; // .board-grid .game-board
 
-  // "More to come" teaser
-  if (hiddenCount > 0) {
-    html += `<div class="hidden-count-teaser">まだまだ続くよ… あと ${hiddenCount} 問</div>`;
+  // ── Teaser for next set (not total remaining) ──
+  const futureSets = sets.length - currentSetIdx - 1;
+  if (futureSets > 0 && !allSetsCleared) {
+    html += `<div class="hidden-count-teaser">クリアすると次のセットが開くよ</div>`;
   }
-
-  html += '</div>'; // .game-board
 
   // ── Level gate ──
   const levelComplete = isLevelComplete(currentLevel);
@@ -2328,17 +2394,6 @@ function renderProgressPath() {
         <div class="level-gate-title">${currentLevel} クリア！</div>
         <div class="level-gate-subtitle">${nextLevel}が解放されました</div>
         <button class="btn-unlock" onclick="goToLevel('${nextLevel}')">${nextLevel}に進む →</button>
-      </div>`;
-    } else {
-      const remaining = levelPhrases.filter(p => !isPhraseCleared(p.id)).length;
-      html += `<div class="level-gate">
-        <div class="level-gate-divider">
-          <div class="level-gate-line"></div>
-          <div class="level-gate-icon">🔒</div>
-          <div class="level-gate-line"></div>
-        </div>
-        <div class="level-gate-title">${nextLevel}</div>
-        <div class="level-gate-subtitle">あと${remaining}マスクリアで解放</div>
       </div>`;
     }
   }
