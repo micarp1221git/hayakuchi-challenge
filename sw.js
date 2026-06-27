@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hayakuchi-v6';
+const CACHE_NAME = 'hayakuchi-v7';
 const ASSETS = [
   './index.html',
   './早口言葉データ.json',

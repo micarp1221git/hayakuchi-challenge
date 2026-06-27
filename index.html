@@ -3692,17 +3692,24 @@ function showShareToast(msg) {
 }
 
 // ===== Today's Challenge (今日のお題) =====
+// 進捗の「次のチャレンジ」と一致させる。全クリア済みなら日替わりで復習用を出す。
 function getTodayChallenge() {
   const today = new Date();
   const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  // Deterministic seed from date string
+  // まず進捗上の次のフレーズを返す
+  const nextId = getNextPhraseId();
+  if (nextId) {
+    const phrase = state.phrases.find(p => p.id === nextId);
+    if (phrase) return { phrase, dateStr };
+  }
+  // 全クリア済み: 日替わりで復習用を出す
   let hash = 0;
   for (let i = 0; i < dateStr.length; i++) {
     hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
     hash |= 0;
   }
-  // Pick from all phrases (across all unlocked levels)
-  const allPhrases = state.phrases;
+  const allPhrases = state.phrases.filter(p => state.unlockedLevels.includes(p.level));
+  if (allPhrases.length === 0) return { phrase: state.phrases[0], dateStr };
   const idx = Math.abs(hash) % allPhrases.length;
   return { phrase: allPhrases[idx], dateStr };
 }
