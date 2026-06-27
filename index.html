@@ -1920,6 +1920,15 @@ function getNextPhraseId() {
   return null; // all completed in unlocked levels
 }
 
+function getNextPhraseIdForLevel(level) {
+  // Returns the first uncleared phrase ID within a specific level
+  const levelPhrases = state.phrases.filter(p => p.level === level);
+  for (const phrase of levelPhrases) {
+    if (!isPhraseCleared(phrase.id)) return phrase.id;
+  }
+  return null; // all completed in this level
+}
+
 // Level progression
 const LEVEL_ORDER = ['初級', '中級', '激ムズ'];
 const CLEAR_SCORE = 70; // Minimum score to count a phrase as "cleared"
@@ -1968,7 +1977,7 @@ function getCurrentActiveLevel() {
   for (const level of LEVEL_ORDER) {
     if (!state.unlockedLevels.includes(level)) continue;
     const levelPhrases = state.phrases.filter(p => p.level === level);
-    if (levelPhrases.some(p => !state.progress[p.id])) return level;
+    if (levelPhrases.some(p => !isPhraseCleared(p.id))) return level;
   }
   // All unlocked levels complete — return the last one
   return state.unlockedLevels[state.unlockedLevels.length - 1];
@@ -2247,9 +2256,9 @@ function renderProgressPath() {
   const pathEl = document.getElementById('progress-path');
   const progress = state.progress;
   const phrases = state.phrases;
-  const nextId = getNextPhraseId();
-  const selectedId = state.currentPhrase ? state.currentPhrase.id : nextId;
   const currentLevel = state.currentLevel;
+  const nextId = getNextPhraseIdForLevel(currentLevel);
+  const selectedId = state.currentPhrase ? state.currentPhrase.id : nextId;
   const levelPhrases = phrases.filter(p => p.level === currentLevel);
   let html = '';
 
@@ -2406,7 +2415,7 @@ function goToLevel(level) {
   state.currentLevel = level;
   // Pick the first uncompleted phrase in the new level
   const levelPhrases = state.phrases.filter(p => p.level === level);
-  const next = levelPhrases.find(p => !state.progress[p.id]) || levelPhrases[0];
+  const next = levelPhrases.find(p => !isPhraseCleared(p.id)) || levelPhrases[0];
   state.currentPhrase = next;
   renderTopScreen();
   // Scroll to top
@@ -2568,6 +2577,7 @@ function stopRecording() {
   // Wait for speech recognition to finish, then process
   state.recognitionDone = !state.hasSpeechRecognition;
   const waitForRecognition = () => {
+    if (state.cancelProcessing) return; // Back button pressed — skip processing
     if (state.recognitionDone) {
       processResults();
     } else {
@@ -3098,15 +3108,18 @@ function processResults() {
   const rank = getRankTitle(totalScore);
   const specials = getSpecialTitles(metrics);
 
+  // Check if this phrase was already cleared before this attempt
+  const wasPhraseCleared = isPhraseCleared(phrase.id);
+
   // Save progress
   saveProgressData(phrase.id, totalScore);
 
-  // Check if this completed a level
+  // Check if this phrase going from uncleared→cleared completed the level
   const phraseLevel = phrase.level;
-  const justCompletedLevel = isLevelComplete(phraseLevel);
+  const nowCleared = isPhraseCleared(phrase.id);
+  const justCompletedLevel = !wasPhraseCleared && nowCleared && isLevelComplete(phraseLevel);
   const nextLevel = getNextLevel(phraseLevel);
-  const shouldShowLevelUp = justCompletedLevel && nextLevel && !state.unlockedLevels.includes(nextLevel);
-  if (shouldShowLevelUp) {
+  if (justCompletedLevel && nextLevel) {
     unlockLevel(nextLevel);
     state.pendingLevelUp = { completedLevel: phraseLevel, nextLevel };
   }
@@ -3699,7 +3712,13 @@ function showShareToast(msg) {
 function getTodayChallenge() {
   const today = new Date();
   const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  // まず進捗上の次のフレーズを返す
+  // まずcurrentLevel内の次のフレーズを探す
+  const levelNextId = state.currentLevel ? getNextPhraseIdForLevel(state.currentLevel) : null;
+  if (levelNextId) {
+    const phrase = state.phrases.find(p => p.id === levelNextId);
+    if (phrase) return { phrase, dateStr };
+  }
+  // currentLevelが全クリアなら、グローバルの次を返す
   const nextId = getNextPhraseId();
   if (nextId) {
     const phrase = state.phrases.find(p => p.id === nextId);
@@ -3812,9 +3831,13 @@ function setupEventListeners() {
 
   // Back from challenge
   document.getElementById('btn-challenge-back').addEventListener('click', () => {
+    state.cancelProcessing = true;
     if (state.isRecording) stopRecording();
     cleanupAudio();
+    document.getElementById('analyzing-overlay').classList.remove('active');
     showScreen('top');
+    renderTopScreen();
+    state.cancelProcessing = false;
   });
 
   // Retry
@@ -4036,7 +4059,6 @@ async function init() {
   syncUnlockedLevelsWithProgress();
   state.currentLevel = getCurrentActiveLevel();
   renderTopScreen();
-  renderTodayBadge();
   setupEventListeners();
   setupBottomNav();
   registerSW();
