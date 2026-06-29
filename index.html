@@ -68,7 +68,15 @@ if (!sessionStorage.getItem('cache_cleared')) {
   --rounded-md: 12px;
   --rounded-lg: 16px;
   --rounded-xl: 24px;
+  /* 文字サイズ（老眼配慮） — 小/中/大で切替。既定は中（やや大きめ） */
+  --fs: 1.2;
+  /* ふりがなの相対サイズ（本文に対する比率）。老眼向けに大きめ */
+  --ruby-ratio: 0.66;
 }
+/* 文字サイズ設定：<html data-fs="s|m|l"> で全体スケールを切替 */
+html[data-fs="s"] { --fs: 1.0; }
+html[data-fs="m"] { --fs: 1.2; }
+html[data-fs="l"] { --fs: 1.45; }
 
 /* ===== Reset & Base ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -101,7 +109,48 @@ body {
   text-align: center;
 }
 .top-header h1 { font-size: 22px; font-weight: 800; letter-spacing: 1px; }
-.top-tagline { font-size: 13px; opacity: 0.9; margin-top: 6px; line-height: 1.5; }
+.top-tagline { font-size: calc(13px * var(--fs)); opacity: 0.9; margin-top: 6px; line-height: 1.5; }
+
+/* ===== 文字サイズ設定 ===== */
+.fontsize-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--rounded-lg);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-sm);
+}
+.fontsize-label {
+  font-size: calc(14px * var(--fs));
+  font-weight: 700;
+  color: var(--on-surface-variant);
+  white-space: nowrap;
+}
+.fontsize-btns { display: flex; gap: 6px; }
+.fontsize-btn {
+  min-width: 44px;
+  padding: 8px 12px;
+  border: 2px solid var(--outline-variant);
+  border-radius: var(--rounded);
+  background: var(--surface-container-low);
+  color: var(--on-surface-variant);
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.fontsize-btn[data-fs-val="s"] { font-size: 14px; }
+.fontsize-btn[data-fs-val="m"] { font-size: 17px; }
+.fontsize-btn[data-fs-val="l"] { font-size: 21px; }
+.fontsize-btn.active {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary-dark);
+}
 .streak-badge {
   display: inline-flex;
   align-items: center;
@@ -165,7 +214,7 @@ body {
   border: 2px solid rgba(255,184,77,0.2);
 }
 .point-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-.point-text { font-size: 13px; color: var(--on-secondary-container); line-height: 1.6; }
+.point-text { font-size: calc(13px * var(--fs)); color: var(--on-secondary-container); line-height: 1.6; }
 .point-credit { font-size: 11px; color: var(--outline); margin-top: 4px; }
 
 /* ===== Challenge Screen ===== */
@@ -185,16 +234,17 @@ body {
   flex-shrink: 0;
 }
 .challenge-phrase {
-  font-size: 22px;
+  font-size: calc(22px * var(--fs));
   font-weight: 800;
-  line-height: 1.7;
+  line-height: 1.85;
   letter-spacing: 1px;
 }
 .challenge-yomi {
-  font-size: 13px;
-  opacity: 0.75;
+  font-size: calc(13px * var(--fs));
+  opacity: 0.78;
   margin-top: 8px;
   letter-spacing: 0.5px;
+  line-height: 1.6;
 }
 .challenge-body {
   flex: 1;
@@ -618,14 +668,14 @@ body {
   50% { opacity: 0.5; transform: scale(1.3); }
 }
 .today-card-phrase {
-  font-size: 20px;
+  font-size: calc(20px * var(--fs));
   font-weight: 800;
   color: var(--on-surface);
   margin-bottom: 6px;
-  line-height: 1.4;
+  line-height: 1.55;
 }
 .today-card-meta {
-  font-size: 12px;
+  font-size: calc(12px * var(--fs));
   color: var(--outline);
   margin-bottom: 14px;
 }
@@ -679,8 +729,8 @@ body {
   box-shadow: var(--shadow-xl);
 }
 .mic-icon { font-size: 48px; margin-bottom: 16px; }
-.mic-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-.mic-desc { font-size: 14px; color: var(--on-surface-variant); line-height: 1.6; margin-bottom: 24px; }
+.mic-title { font-size: calc(18px * var(--fs)); font-weight: 700; margin-bottom: 8px; }
+.mic-desc { font-size: calc(14px * var(--fs)); color: var(--on-surface-variant); line-height: 1.6; margin-bottom: 24px; }
 .mic-btn {
   width: 100%;
   padding: 14px;
@@ -1243,11 +1293,15 @@ body {
 .challenge-phrase ruby {
   ruby-position: over;
 }
-.challenge-phrase rt {
-  font-size: 9px;
-  font-weight: 400;
-  opacity: 0.7;
+/* ふりがな：本文に対する比率で指定。本文が大きくなれば自動で大きくなる */
+.challenge-phrase rt,
+.today-card-phrase rt {
+  font-size: calc(var(--ruby-ratio) * 1em);
+  font-weight: 500;
+  opacity: 0.82;
+  letter-spacing: 0.5px;
 }
+.today-card-phrase ruby { ruby-position: over; }
 
 /* ===== Utility ===== */
 .sr-only {
@@ -1564,7 +1618,7 @@ body {
 /* Compact challenge screen on short viewports */
 @media (max-height: 700px) {
   .challenge-header { padding: 44px 16px 16px; }
-  .challenge-phrase { font-size: 18px; }
+  .challenge-phrase { font-size: calc(18px * var(--fs)); }
   .waveform-container { height: 80px; }
   .timer { font-size: 36px; }
   .btn-record { width: 72px; height: 72px; }
@@ -1621,6 +1675,14 @@ body {
   </div>
 
   <div class="top-body">
+    <div class="fontsize-control" role="group" aria-label="文字サイズ">
+      <span class="fontsize-label">文字サイズ</span>
+      <div class="fontsize-btns">
+        <button type="button" class="fontsize-btn" data-fs-val="s">小</button>
+        <button type="button" class="fontsize-btn" data-fs-val="m">中</button>
+        <button type="button" class="fontsize-btn" data-fs-val="l">大</button>
+      </div>
+    </div>
     <div class="path-progress-bar">
       <div class="path-progress-track">
         <div class="path-progress-fill" id="path-progress-fill" style="width:0%"></div>
@@ -4008,7 +4070,26 @@ async function registerSW() {
 }
 
 // ===== Init =====
+// 文字サイズ設定（小/中/大）。<html data-fs> を切り替えて全体をスケール
+function setupFontSize() {
+  const valid = ['s', 'm', 'l'];
+  let cur = localStorage.getItem('hayakuchi_fontscale');
+  if (!valid.includes(cur)) cur = 'm'; // 既定は中（やや大きめ）
+  const apply = (v) => {
+    document.documentElement.dataset.fs = v;
+    localStorage.setItem('hayakuchi_fontscale', v);
+    document.querySelectorAll('.fontsize-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.fsVal === v);
+    });
+  };
+  apply(cur);
+  document.querySelectorAll('.fontsize-btn').forEach(b => {
+    b.addEventListener('click', () => apply(b.dataset.fsVal));
+  });
+}
+
 async function init() {
+  setupFontSize();
   migrateIfNeeded();
   await loadPhrases();
   setupSpeechRecognition();
