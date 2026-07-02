@@ -3,6 +3,7 @@
   "short_name": "早口言葉",
   "description": "ボイストレーナーが作った、毎日1つの早口言葉チャレンジ",
   "start_url": "./index.html",
+  "id": "./",
   "display": "standalone",
   "background_color": "#FFFBF5",
   "theme_color": "#FFB84D",
@@ -33,5 +34,8 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["entertainment", "education"]
+  "categories": [
+    "entertainment",
+    "education"
+  ]
 }
