@@ -1307,6 +1307,34 @@ body {
   margin: 8px 0 10px;
 }
 .gate-hint { font-size: 12.5px; color: var(--on-surface-variant); line-height: 1.8; }
+.gate-challenge { margin-top: 14px; text-align: left; }
+.gate-challenge-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--on-surface);
+  text-align: center;
+  margin-bottom: 8px;
+}
+.gate-challenge-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: 6px;
+  background: var(--background);
+  border: 1.5px solid var(--primary-container);
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform .1s;
+}
+.gate-challenge-chip:active { transform: scale(.97); }
+.gcc-text { font-weight: 700; color: var(--on-surface); text-align: left; }
+.gcc-score { flex-shrink: 0; font-size: 11.5px; font-weight: 700; color: var(--secondary-dark); }
+.gate-challenge-note { margin-top: 12px; font-size: 12.5px; color: var(--on-surface-variant); line-height: 1.7; }
 
 /* ===== Ruby (Furigana) ===== */
 .challenge-phrase ruby {
@@ -1904,9 +1932,11 @@ const CONFIG = {
 
 // ===== セット解放の時間しばり設定 =====
 // freeUnlocks: 待ち時間ゼロで開けられる「次のセット」の回数。
-//   2 なら初日はセット1〜3（15本）まで一気に遊べる＝初回体験を守る。
+//   1 なら初日はセット1〜2（10本）まで一気に遊べる＝初回体験を守りつつ「もっとやりたい」で止める。
 // cooldownHours: 無料分を使い切った後、セットクリア→次のセットが開くまでの時間。
-const GATE_CONFIG = { freeUnlocks: 2, cooldownHours: 6 };
+//   4時間 = 朝→昼→夕方→夜の生活リズムに乗る間隔。運動学習の分散練習（詰め込みより
+//   間隔を空けた方が定着する）とも整合。変えるのはこの2つの数字だけでOK。
+const GATE_CONFIG = { freeUnlocks: 1, cooldownHours: 4 };
 const SET_SIZE = 5;
 
 // ===== State =====
@@ -2076,7 +2106,26 @@ function buildGateCardHtml(unlockAt) {
     <div class="gate-icon">⏰</div>
     <div class="gate-title">つぎの5本は、じゅんび中！</div>
     <div class="gate-countdown" id="gate-countdown" data-unlock="${unlockAt}">${gateRemainingText(unlockAt)}</div>
-    <div class="gate-hint">声はやすませるのも練習のうち。<br>それまでは、クリアずみの早口言葉で<br>自己ベスト更新に挑戦してみてね！</div>
+    <div class="gate-hint">声はやすませるのも練習のうち。<br>そのあいだに、きょうの早口言葉で<br>とくてんアップに挑戦しよう！</div>
+    ${buildGateChallengeHtml()}
+  </div>`;
+}
+
+// 待ち時間の遊び：ベスト更新を狙えるフレーズ（クリア済み・メダル未満）を点数の低い順に提示
+function buildGateChallengeHtml() {
+  const cands = state.phrases
+    .filter(p => state.unlockedLevels.includes(p.level) && isPhraseCleared(p.id) && state.progress[p.id].bestScore < 90)
+    .sort((a, b) => state.progress[a.id].bestScore - state.progress[b.id].bestScore)
+    .slice(0, 3);
+  if (cands.length === 0) {
+    return `<div class="gate-challenge-note">🎖️ ぜんぶメダル級！すごい！<br>お気に入りの1本で最高記録を狙おう</div>`;
+  }
+  return `<div class="gate-challenge">
+    <div class="gate-challenge-title">🏆 とくてんアップに挑戦（90点で🎖️メダル）</div>
+    ${cands.map(p => `<button class="gate-challenge-chip" onclick="selectPhrase('${p.id}')">
+      <span class="gcc-text">${p.text}</span>
+      <span class="gcc-score">いま${state.progress[p.id].bestScore}点</span>
+    </button>`).join('')}
   </div>`;
 }
 
