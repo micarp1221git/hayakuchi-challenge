@@ -1289,6 +1289,25 @@ body {
   letter-spacing: 0.5px;
 }
 
+/* ===== Set time-gate card ===== */
+.gate-card {
+  background: var(--surface);
+  border: 2px dashed var(--primary);
+  border-radius: 16px;
+  padding: 22px 18px;
+  text-align: center;
+  margin: 14px 0 6px;
+}
+.gate-icon { font-size: 34px; margin-bottom: 4px; }
+.gate-title { font-weight: 800; font-size: 16px; color: var(--on-surface); }
+.gate-countdown {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--primary-dark);
+  margin: 8px 0 10px;
+}
+.gate-hint { font-size: 12.5px; color: var(--on-surface-variant); line-height: 1.8; }
+
 /* ===== Ruby (Furigana) ===== */
 .challenge-phrase ruby {
   ruby-position: over;
@@ -1883,6 +1902,13 @@ const CONFIG = {
   weights: { accuracy: 0.50, speed: 0.25, articulation: 0.15, stumble: 0.10 },
 };
 
+// ===== セット解放の時間しばり設定 =====
+// freeUnlocks: 待ち時間ゼロで開けられる「次のセット」の回数。
+//   2 なら初日はセット1〜3（15本）まで一気に遊べる＝初回体験を守る。
+// cooldownHours: 無料分を使い切った後、セットクリア→次のセットが開くまでの時間。
+const GATE_CONFIG = { freeUnlocks: 2, cooldownHours: 6 };
+const SET_SIZE = 5;
+
 // ===== State =====
 const state = {
   phrases: [],
@@ -1956,6 +1982,7 @@ function loadProgressData() {
 function saveProgressData(phraseId, score) {
   const progress = loadProgressData();
   const existing = progress[phraseId];
+  const clearedBefore = existing && existing.bestScore >= CLEAR_SCORE;
   progress[phraseId] = {
     score,
     bestScore: existing ? Math.max(existing.bestScore, score) : score,
@@ -1963,6 +1990,15 @@ function saveProgressData(phraseId, score) {
   };
   localStorage.setItem('hayakuchi_progress', JSON.stringify(progress));
   state.progress = progress;
+
+  // このスコアで新規クリアになり、所属セットが全クリアになった＝次セット解放の権利を消費
+  if (!clearedBefore && score >= CLEAR_SCORE) {
+    const phrase = state.phrases.find(p => p.id === phraseId);
+    if (phrase) {
+      const set = getPhraseSets(phrase.level).find(s => s.some(p => p.id === phraseId));
+      if (set && set.every(p => isPhraseCleared(p.id))) consumeSetUnlock();
+    }
+  }
 }
 
 function getNextPhraseId() {
@@ -1989,6 +2025,75 @@ const CLEAR_SCORE = 70; // Minimum score to count a phrase as "cleared"
 function isPhraseCleared(phraseId) {
   const p = state.progress[phraseId];
   return p && p.bestScore >= CLEAR_SCORE;
+}
+
+// ===== セット解放の時間ゲート =====
+function loadGate() {
+  try {
+    const g = JSON.parse(localStorage.getItem('hayakuchi_gate') || 'null');
+    if (g && typeof g.unlockAt === 'number' && typeof g.freeLeft === 'number') return g;
+  } catch {}
+  return { unlockAt: 0, freeLeft: GATE_CONFIG.freeUnlocks };
+}
+function saveGate(g) { localStorage.setItem('hayakuchi_gate', JSON.stringify(g)); }
+function isGateActive() { return loadGate().unlockAt > Date.now(); }
+
+function getPhraseSets(level) {
+  const levelPhrases = state.phrases.filter(p => p.level === level);
+  const sets = [];
+  for (let i = 0; i < levelPhrases.length; i += SET_SIZE) sets.push(levelPhrases.slice(i, i + SET_SIZE));
+  return sets;
+}
+
+// ゲート中で、まだ一度も触っていないセットのフレーズ＝挑戦できない
+function isPhraseGated(phraseId) {
+  if (!isGateActive()) return false;
+  const phrase = state.phrases.find(p => p.id === phraseId);
+  if (!phrase) return false;
+  if (state.progress[phraseId]) return false;
+  const set = getPhraseSets(phrase.level).find(s => s.some(p => p.id === phraseId));
+  if (!set) return false;
+  return set.every(p => !state.progress[p.id]);
+}
+
+// セットクリアの瞬間に呼ぶ：無料解放を消費するか、時間ゲートを張る
+function consumeSetUnlock() {
+  const g = loadGate();
+  if (g.freeLeft > 0) { g.freeLeft -= 1; }
+  else { g.unlockAt = Date.now() + GATE_CONFIG.cooldownHours * 3600 * 1000; }
+  saveGate(g);
+}
+
+function gateRemainingText(unlockAt) {
+  const ms = Math.max(0, unlockAt - Date.now());
+  const h = Math.floor(ms / 3600000);
+  const m = Math.max(1, Math.ceil((ms % 3600000) / 60000));
+  return h > 0 ? `あと ${h}時間${m}分` : `あと ${m}分`;
+}
+
+function buildGateCardHtml(unlockAt) {
+  return `<div class="gate-card">
+    <div class="gate-icon">⏰</div>
+    <div class="gate-title">つぎの5本は、じゅんび中！</div>
+    <div class="gate-countdown" id="gate-countdown" data-unlock="${unlockAt}">${gateRemainingText(unlockAt)}</div>
+    <div class="gate-hint">声はやすませるのも練習のうち。<br>それまでは、クリアずみの早口言葉で<br>自己ベスト更新に挑戦してみてね！</div>
+  </div>`;
+}
+
+let gateTimer = null;
+function startGateCountdown() {
+  if (gateTimer) clearInterval(gateTimer);
+  gateTimer = setInterval(() => {
+    const el = document.getElementById('gate-countdown');
+    if (!el) { clearInterval(gateTimer); gateTimer = null; return; }
+    const unlockAt = parseInt(el.dataset.unlock, 10);
+    if (Date.now() >= unlockAt) {
+      clearInterval(gateTimer); gateTimer = null;
+      renderTopScreen();
+      return;
+    }
+    el.textContent = gateRemainingText(unlockAt);
+  }, 30000);
 }
 
 function loadUnlockedLevels() {
@@ -2096,7 +2201,7 @@ function setupBottomNav() {
       // Fallback: next uncleared phrase
       state.progress = loadProgressData();
       const levelPhrases = state.phrases.filter(p => p.level === state.currentLevel);
-      const next = levelPhrases.find(p => !isPhraseCleared(p.id));
+      const next = levelPhrases.find(p => !isPhraseCleared(p.id) && !isPhraseGated(p.id));
       state.currentPhrase = next || levelPhrases[0];
     }
     if (!state.currentPhrase) return;
@@ -2302,7 +2407,6 @@ function renderProgressPath() {
   // (Start marker & stage label removed — level tabs already convey this info)
 
   // ── Set-based progressive reveal (5個×Nセット) ──
-  const SET_SIZE = 5;
   const sets = [];
   for (let i = 0; i < levelPhrases.length; i += SET_SIZE) {
     sets.push(levelPhrases.slice(i, i + SET_SIZE));
@@ -2315,6 +2419,19 @@ function renderProgressPath() {
   const allSetsCleared = currentSetIdx === -1;
   if (allSetsCleared) currentSetIdx = sets.length - 1;
 
+  // ── 時間ゲート判定：未着手の新セットはクールダウン中ロック ──
+  const gate = loadGate();
+  let gateLocked = false;
+  if (!allSetsCleared && gate.unlockAt > Date.now() &&
+      sets[currentSetIdx].every(p => !progress[p.id])) {
+    gateLocked = true;
+  }
+  let showTiles = true;
+  if (gateLocked) {
+    if (currentSetIdx > 0) currentSetIdx -= 1; // 直前のクリア済みセットを復習用に表示
+    else showTiles = false; // レベル最初のセットがロック中：カードのみ
+  }
+
   // ── Completed sets: compact badges ──
   if (currentSetIdx > 0) {
     html += '<div class="completed-sets-row">';
@@ -2325,6 +2442,7 @@ function renderProgressPath() {
   }
 
   // ── Current set: header + tiles ──
+  if (showTiles) {
   const currentSet = sets[currentSetIdx];
   const clearedInSet = currentSet.filter(p => isPhraseCleared(p.id)).length;
   const totalInSet = currentSet.length;
@@ -2335,6 +2453,8 @@ function renderProgressPath() {
   let progressMsg;
   if (allSetsCleared) {
     progressMsg = 'コンプリート！';
+  } else if (remainingInSet === 0) {
+    progressMsg = 'クリア！';
   } else if (clearedInSet === 0) {
     progressMsg = '';
   } else if (clearedInSet <= totalInSet / 2) {
@@ -2384,10 +2504,13 @@ function renderProgressPath() {
   }
 
   html += '</div></div>'; // .board-grid .game-board
+  } // showTiles
 
   // ── Teaser for next set (not total remaining) ──
   const futureSets = sets.length - currentSetIdx - 1;
-  if (futureSets > 0 && !allSetsCleared) {
+  if (gateLocked) {
+    html += buildGateCardHtml(gate.unlockAt);
+  } else if (futureSets > 0 && !allSetsCleared) {
     html += `<div class="hidden-count-teaser">クリアすると次のセットが開くよ</div>`;
   }
 
@@ -2430,6 +2553,7 @@ function renderProgressPath() {
   }
 
   pathEl.innerHTML = html;
+  if (gateLocked) startGateCountdown();
 }
 
 function goToLevel(level) {
@@ -3230,6 +3354,8 @@ function renderResults(phrase, score, rank, specials, metrics, charAlignment) {
       btnNext.textContent = `${phrase.level}クリア！${nextLevel}へ →`;
     } else if (levelJustCompleted && !nextLevel) {
       btnNext.textContent = '全レベル制覇！🎉';
+    } else if (nextId && isPhraseGated(nextId)) {
+      btnNext.textContent = 'セットクリア！きょうはここまで 🎉';
     } else {
       btnNext.textContent = '次のお題へ →';
     }
@@ -3735,13 +3861,13 @@ function getTodayChallenge() {
   const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   // まずcurrentLevel内の次のフレーズを探す
   const levelNextId = state.currentLevel ? getNextPhraseIdForLevel(state.currentLevel) : null;
-  if (levelNextId) {
+  if (levelNextId && !isPhraseGated(levelNextId)) {
     const phrase = state.phrases.find(p => p.id === levelNextId);
     if (phrase) return { phrase, dateStr };
   }
   // currentLevelが全クリアなら、グローバルの次を返す
   const nextId = getNextPhraseId();
-  if (nextId) {
+  if (nextId && !isPhraseGated(nextId)) {
     const phrase = state.phrases.find(p => p.id === nextId);
     if (phrase) return { phrase, dateStr };
   }
@@ -3751,7 +3877,7 @@ function getTodayChallenge() {
     hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
     hash |= 0;
   }
-  const allPhrases = state.phrases.filter(p => state.unlockedLevels.includes(p.level));
+  const allPhrases = state.phrases.filter(p => state.unlockedLevels.includes(p.level) && !isPhraseGated(p.id));
   if (allPhrases.length === 0) return { phrase: state.phrases[0], dateStr };
   const idx = Math.abs(hash) % allPhrases.length;
   return { phrase: allPhrases[idx], dateStr };
@@ -3885,7 +4011,7 @@ function setupEventListeners() {
     const levelPhrases = state.phrases.filter(p => p.level === currentLevel);
     const nextInLevel = levelPhrases.find(p => !isPhraseCleared(p.id));
 
-    if (nextInLevel) {
+    if (nextInLevel && !isPhraseGated(nextInLevel.id)) {
       state.currentPhrase = nextInLevel;
       showScreen('top');
       renderTopScreen();
