@@ -1936,7 +1936,8 @@ const CONFIG = {
 // cooldownHours: 無料分を使い切った後、セットクリア→次のセットが開くまでの時間。
 //   4時間 = 朝→昼→夕方→夜の生活リズムに乗る間隔。運動学習の分散練習（詰め込みより
 //   間隔を空けた方が定着する）とも整合。変えるのはこの2つの数字だけでOK。
-const GATE_CONFIG = { freeUnlocks: 1, cooldownHours: 4 };
+// enabled: false で時間制限を完全にオフ（後で true に戻せば復活）。
+const GATE_CONFIG = { enabled: false, freeUnlocks: 1, cooldownHours: 4 };
 const SET_SIZE = 5;
 
 // ===== State =====
@@ -2066,7 +2067,7 @@ function loadGate() {
   return { unlockAt: 0, freeLeft: GATE_CONFIG.freeUnlocks };
 }
 function saveGate(g) { localStorage.setItem('hayakuchi_gate', JSON.stringify(g)); }
-function isGateActive() { return loadGate().unlockAt > Date.now(); }
+function isGateActive() { return GATE_CONFIG.enabled && loadGate().unlockAt > Date.now(); }
 
 function getPhraseSets(level) {
   const levelPhrases = state.phrases.filter(p => p.level === level);
@@ -2088,6 +2089,7 @@ function isPhraseGated(phraseId) {
 
 // セットクリアの瞬間に呼ぶ：無料解放を消費するか、時間ゲートを張る
 function consumeSetUnlock() {
+  if (!GATE_CONFIG.enabled) return;  // 時間制限オフ時は何もしない
   const g = loadGate();
   if (g.freeLeft > 0) { g.freeLeft -= 1; }
   else { g.unlockAt = Date.now() + GATE_CONFIG.cooldownHours * 3600 * 1000; }
@@ -2471,7 +2473,7 @@ function renderProgressPath() {
   // ── 時間ゲート判定：未着手の新セットはクールダウン中ロック ──
   const gate = loadGate();
   let gateLocked = false;
-  if (!allSetsCleared && gate.unlockAt > Date.now() &&
+  if (!allSetsCleared && isGateActive() &&
       sets[currentSetIdx].every(p => !progress[p.id])) {
     gateLocked = true;
   }
