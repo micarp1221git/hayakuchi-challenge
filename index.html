@@ -2899,7 +2899,19 @@ function calculateAccuracy(recognized, phrase) {
   const rRuby = recognizedToHira(recognized, phrase);
   const score3 = stringSimilarity(rRuby, phrase.yomi);
 
-  return Math.round(Math.max(score1, score2, score3) * 100);
+  let best = Math.max(score1, score2, score3);
+
+  // 同音異字フォールバック: 音声認識が「かみちぎり→髪千切り」のように
+  // お題と違う漢字（同じ読みの別漢字）を返すと、読みに変換できず不当に低くなる。
+  // 変換後もまだ漢字が残っている＝この状態。ちゃんと声を出している（長さが十分）なら
+  // 認識の漢字選択のせいで落とさないよう、下限を設ける。
+  const stillHasKanji = /[一-鿿]/.test(rRuby);
+  const spokeEnough = r.length >= (phrase.yomi ? phrase.yomi.length * 0.4 : 3);
+  if (stillHasKanji && spokeEnough) {
+    best = Math.max(best, 0.7);
+  }
+
+  return Math.round(best * 100);
 }
 
 function stringSimilarity(a, b) {
