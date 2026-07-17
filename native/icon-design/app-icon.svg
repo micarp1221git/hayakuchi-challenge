@@ -4,52 +4,42 @@
       <stop offset="0" stop-color="#FFC55E"/>
       <stop offset="1" stop-color="#FF8A3D"/>
     </linearGradient>
-    <linearGradient id="lip" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#F26419"/>
-      <stop offset="1" stop-color="#D8450A"/>
-    </linearGradient>
-    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#9C3A00" flood-opacity="0.30"/>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#9C3A00" flood-opacity="0.28"/>
     </filter>
   </defs>
 
   <!-- 背景（フルブリード・iOS側で角丸マスクされる） -->
   <rect width="1024" height="1024" fill="url(#bg)"/>
 
-  <!-- スピード線（後ろに流れる平行線） -->
-  <g stroke="#FFFFFF" stroke-width="48" stroke-linecap="round" opacity="0.9">
-    <line x1="40"  y1="376" x2="176" y2="376"/>
-    <line x1="74"  y1="466" x2="176" y2="466"/>
-    <line x1="104" y1="556" x2="176" y2="556"/>
-  </g>
+  <!-- 飛んでいる唇（白・分厚め）＋唇から伸びる流線 -->
+  <g transform="rotate(-6 560 510)" filter="url(#soft)">
 
-  <!-- 「あ」の口・微笑み寄り（唇=濃いオレンジ・歯が主役） -->
-  <g transform="rotate(-4 560 508)" filter="url(#soft)">
-    <!-- 唇の本体（キューピッドボウ入り） -->
-    <path d="M 226 436
-             C 300 372, 400 348, 500 352
-             C 528 353, 548 362, 560 366
-             C 572 362, 592 353, 620 352
-             C 720 348, 820 372, 894 436
-             C 852 570, 724 664, 560 664
-             C 396 664, 268 570, 226 436
-             Z"
-          fill="url(#lip)"/>
-    <!-- 口の中（下側の暗がりは薄く） -->
-    <path d="M 282 446
-             C 344 394, 450 378, 560 380
-             C 670 378, 776 394, 838 446
-             C 800 552, 700 616, 560 616
-             C 420 616, 320 552, 282 446
-             Z"
-          fill="#6E2410"/>
-    <!-- 上の歯（大きな白い面が主役・微笑みカーブ） -->
-    <path d="M 282 446
-             C 344 394, 450 378, 560 380
-             C 670 378, 776 394, 838 446
-             C 794 528, 700 570, 560 570
-             C 420 570, 326 528, 282 446
+    <!-- 唇から後ろへ流れる線 -->
+    <g stroke="#FFFFFF" stroke-width="46" stroke-linecap="round">
+      <line x1="352" y1="416" x2="128" y2="416"/>
+      <line x1="336" y1="506" x2="64"  y2="506"/>
+      <line x1="356" y1="596" x2="168" y2="596"/>
+    </g>
+
+    <!-- 唇本体（「あ」の口・口角少しアップ・キューピッドボウ強め） -->
+    <path d="M 322 470
+             C 360 400, 420 360, 505 360
+             C 548 360, 582 380, 612 388
+             C 642 380, 676 360, 719 360
+             C 804 360, 864 400, 902 470
+             C 862 586, 748 658, 612 658
+             C 476 658, 362 586, 322 470
              Z"
           fill="#FFFFFF"/>
+
+    <!-- 口の中（歯なし・小さめの暗がり＝唇が分厚く見える） -->
+    <path d="M 430 484
+             C 470 436, 534 418, 618 418
+             C 706 418, 772 436, 814 484
+             C 782 550, 710 582, 618 582
+             C 526 582, 462 550, 430 484
+             Z"
+          fill="#7E2415"/>
   </g>
 </svg>
