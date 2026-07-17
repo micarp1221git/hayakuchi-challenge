@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <script>
 // 一度だけ全キャッシュをクリアして再読み込み（完了後このブロックは削除してOK）
-if (!sessionStorage.getItem('cache_cleared')) {
+// ※ネイティブアプリ（Capacitor）ではSW未使用のためスキップ
+if (!window.Capacitor && !sessionStorage.getItem('cache_cleared')) {
   sessionStorage.setItem('cache_cleared', '1');
   caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
     navigator.serviceWorker.getRegistrations().then(regs => {
@@ -4252,10 +4253,36 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
 // ===== PWA Registration =====
 async function registerSW() {
+  if (isNativeApp()) return; // ネイティブアプリは全ファイル同梱のためSW不要
   if ('serviceWorker' in navigator) {
     try { await navigator.serviceWorker.register('sw.js'); }
     catch (e) { console.log('SW registration skipped:', e); }
   }
+}
+
+// ===== Native App (Capacitor) =====
+// iOS/Androidのネイティブ版でだけ動く。Webでは何もしない
+function isNativeApp() {
+  return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
+
+// 毎日のお題リマインダー（朝8時のローカル通知・サーバー不要）
+async function setupDailyReminder() {
+  if (!isNativeApp()) return;
+  try {
+    const LN = window.Capacitor.Plugins.LocalNotifications;
+    if (!LN) return;
+    const perm = await LN.requestPermissions();
+    if (!perm || perm.display !== 'granted') return;
+    const pending = await LN.getPending();
+    if (pending && pending.notifications && pending.notifications.some(n => Number(n.id) === 1)) return;
+    await LN.schedule({ notifications: [{
+      id: 1,
+      title: '今日の早口言葉 🎤',
+      body: '1日1回、30秒だけ。今日のお題に挑戦しましょう',
+      schedule: { on: { hour: 8, minute: 0 }, allowWhileIdle: true }
+    }] });
+  } catch (e) { console.log('daily reminder skipped:', e); }
 }
 
 // ===== Init =====
@@ -4294,6 +4321,9 @@ async function init() {
 
   // Dismiss splash screen after 1.5s
   setTimeout(dismissSplash, 1500);
+
+  // ネイティブ版のみ: 毎日のお題通知をセット（スプラッシュ後に許可を聞く）
+  setTimeout(setupDailyReminder, 2600);
 
   // Auto-scroll to current node after splash
   setTimeout(() => {
