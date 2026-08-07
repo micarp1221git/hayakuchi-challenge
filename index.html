@@ -1941,6 +1941,57 @@ const CONFIG = {
 const GATE_CONFIG = { enabled: false, freeUnlocks: 1, cooldownHours: 4 };
 const SET_SIZE = 5;
 
+// ===== 1日の挑戦回数制限（ネイティブアプリ版のみ・課金の土台） =====
+// みかさん方針(2026-08-07): 鬼級パック等のコンテンツ課金ではなく、
+// 「1日にできる回数を増やせる」を課金にする。お題は全部無料のまま。
+// Web版は従来どおり無制限（お試しの入口。アプリ外課金の規約問題も避ける）。
+// purchaseAvailable: アプリ内課金(StoreKit)を配線するまで false。
+//   false の間は上限に達すると「また明日」の案内だけ出す（買えないボタンは出さない＝審査対策）。
+const DAILY_LIMIT_CONFIG = { enabled: true, freePerDay: 5, purchaseAvailable: false };
+
+function dailyLimitTodayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+function hasUnlimitedPass() {
+  return localStorage.getItem('unlimited_pass') === 'yes'; // 課金配線後にStoreKitの購入状態と同期する
+}
+function attemptsToday() {
+  try {
+    const j = JSON.parse(localStorage.getItem('daily_attempts') || '{}');
+    return j.day === dailyLimitTodayKey() ? j.count || 0 : 0;
+  } catch (e) { return 0; }
+}
+function countDailyAttempt() {
+  localStorage.setItem('daily_attempts', JSON.stringify({ day: dailyLimitTodayKey(), count: attemptsToday() + 1 }));
+}
+function dailyLimitActive() {
+  return DAILY_LIMIT_CONFIG.enabled && isNativeApp() && !hasUnlimitedPass();
+}
+function dailyLimitReached() {
+  return dailyLimitActive() && attemptsToday() >= DAILY_LIMIT_CONFIG.freePerDay;
+}
+function showDailyLimitModal() {
+  let el = document.getElementById('daily-limit-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'daily-limit-overlay';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px;';
+    const buyRow = DAILY_LIMIT_CONFIG.purchaseAvailable
+      ? '<button id="daily-limit-buy" style="width:100%;margin-top:14px;padding:14px;border:none;border-radius:14px;background:#FFB84D;font-size:16px;font-weight:700;">たっぷりパスで無制限にする</button>'
+      : '';
+    el.innerHTML = `<div style="background:#fff;border-radius:20px;padding:26px 22px;max-width:340px;text-align:center;">
+      <div style="font-size:38px;">🎉</div>
+      <div style="font-size:18px;font-weight:700;margin-top:8px;">きょうの${DAILY_LIMIT_CONFIG.freePerDay}回、やり切りました！</div>
+      <div style="font-size:14px;color:#666;margin-top:10px;line-height:1.7;">声はやすませるのも練習のうち。<br>また明日、続きをどうぞ。</div>
+      ${buyRow}
+      <button id="daily-limit-close" style="width:100%;margin-top:12px;padding:12px;border:none;border-radius:14px;background:#eee;font-size:15px;">とじる</button>
+    </div>`;
+    document.body.appendChild(el);
+    document.getElementById('daily-limit-close').addEventListener('click', () => el.remove());
+  }
+}
+
 // ===== State =====
 const state = {
   phrases: [],
@@ -4036,6 +4087,9 @@ function setupEventListeners() {
     if (state.isRecording) {
       stopRecording();
     } else {
+      // 1日の回数制限（ネイティブのみ）。録音を始める前に見る
+      if (dailyLimitReached()) { showDailyLimitModal(); return; }
+      if (dailyLimitActive()) countDailyAttempt();
       startRecording();
     }
   });
