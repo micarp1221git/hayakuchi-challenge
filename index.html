@@ -1947,7 +1947,7 @@ const SET_SIZE = 5;
 // Web版は従来どおり無制限（お試しの入口。アプリ外課金の規約問題も避ける）。
 // purchaseAvailable: アプリ内課金(StoreKit)を配線するまで false。
 //   false の間は上限に達すると「また明日」の案内だけ出す（買えないボタンは出さない＝審査対策）。
-const DAILY_LIMIT_CONFIG = { enabled: true, freePerDay: 5, purchaseAvailable: false };
+const DAILY_LIMIT_CONFIG = { enabled: true, freePerDay: 15, purchaseAvailable: false };  // 15回=「ある程度やれて、もっとやりたい」の線（2026-08-07みかさん）
 
 function dailyLimitTodayKey() {
   const d = new Date();
@@ -1983,7 +1983,7 @@ function showDailyLimitModal() {
     el.innerHTML = `<div style="background:#fff;border-radius:20px;padding:26px 22px;max-width:340px;text-align:center;">
       <div style="font-size:38px;">🎉</div>
       <div style="font-size:18px;font-weight:700;margin-top:8px;">きょうの${DAILY_LIMIT_CONFIG.freePerDay}回、やり切りました！</div>
-      <div style="font-size:14px;color:#666;margin-top:10px;line-height:1.7;">声はやすませるのも練習のうち。<br>また明日、続きをどうぞ。</div>
+      <div style="font-size:14px;color:#666;margin-top:10px;line-height:1.7;">また明日、続きをどうぞ。</div>
       ${buyRow}
       <button id="daily-limit-close" style="width:100%;margin-top:12px;padding:12px;border:none;border-radius:14px;background:#eee;font-size:15px;">とじる</button>
     </div>`;
