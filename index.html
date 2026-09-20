@@ -4321,12 +4321,12 @@ function isNativeApp() {
 }
 
 /* ===== AdMob バナー広告（ネイティブ版のみ・下部・追跡なし npa）=====
-   2026-09-20 献立と同じ形。⚠️ いまはGoogle公式テストID。本番IDが来たら enabled/isTesting とIDを差し替える */
+   2026-09-20 献立と同じ形。本番ID投入済み（iOS）。Androidは未リリースのためテストIDのまま */
 const ADMOB_CONFIG = {
   enabled: true,
-  bannerIdIos: 'ca-app-pub-3940256099942544/2934735716',      // テスト用(iOSバナー) → 本番IDに差し替え
+  bannerIdIos: 'ca-app-pub-6657198955886954/5198639675',      // 本番(iOSバナー・2026-09-20 みかさん発行)
   bannerIdAndroid: 'ca-app-pub-3940256099942544/6300978111',  // テスト用(Androidバナー)
-  isTesting: true
+  isTesting: false
 };
 async function setupBannerAd(){
   if(!ADMOB_CONFIG.enabled) return;

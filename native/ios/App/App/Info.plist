@@ -51,9 +51,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<!-- AdMob。⚠️ いまはGoogle公式テストAppID。本番AppIDが来たら差し替え（献立と同じ形） -->
+	<!-- AdMob 本番AppID（2026-09-20 みかさん発行） -->
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>ca-app-pub-6657198955886954~8678719683</string>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>
