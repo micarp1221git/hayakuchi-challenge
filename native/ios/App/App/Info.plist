@@ -30,6 +30,25 @@
 	<string>早口言葉の録音と採点のためにマイクを使用します。読み上げた音声は端末の音声認識で文字にして採点し、本アプリの運営者へ送られることはありません。</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>早口言葉の発音チェック（採点）のために音声認識を使用します。</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
