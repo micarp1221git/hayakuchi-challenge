@@ -1683,6 +1683,10 @@ body {
   }
   .splash-screen { transition: opacity 0.01ms; }
 }
+
+/* 広告バナー（アプリ版のみ・画面の下の安全域の上に出る）が出ている間は、その高さぶん持ち上げる（2026-09-24） */
+body.has-ad{padding-bottom:calc(var(--ad-h,0px) + env(safe-area-inset-bottom,0px))}
+body.has-ad .bottom-nav{bottom:calc(var(--ad-h,0px) + env(safe-area-inset-bottom,0px));padding-bottom:6px}
 </style>
 </head>
 <body>
@@ -4335,6 +4339,10 @@ async function setupBannerAd(){
     const AdMob = window.Capacitor.Plugins.AdMob;
     if(!AdMob) return;
     await AdMob.initialize();
+    // バナーが出たら、その高さぶん下の要素を持ち上げる（出ない・失敗したときは0に戻す）（2026-09-24）
+    const setAdH = h => { document.documentElement.style.setProperty('--ad-h', (h || 0) + 'px'); document.body.classList.toggle('has-ad', (h || 0) > 0); };
+    AdMob.addListener('bannerAdSizeChanged', info => setAdH(info && info.height));
+    AdMob.addListener('bannerAdFailedToLoad', () => setAdH(0));
     const isIos = window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios';
     await AdMob.showBanner({
       adId: isIos ? ADMOB_CONFIG.bannerIdIos : ADMOB_CONFIG.bannerIdAndroid,
@@ -4344,7 +4352,6 @@ async function setupBannerAd(){
       isTesting: ADMOB_CONFIG.isTesting,
       npa: true
     });
-    document.body.style.paddingBottom = '70px';
   }catch(e){ console.log('banner ad skipped:', e); }
 }
 setTimeout(setupBannerAd, 1500);
