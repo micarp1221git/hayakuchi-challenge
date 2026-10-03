@@ -4356,7 +4356,8 @@ async function setupBannerAd(){
 }
 setTimeout(setupBannerAd, 1500);
 
-// 毎日のお題リマインダー（朝8時のローカル通知・サーバー不要）
+// 毎日のお題リマインダー（夜19:30のローカル通知・サーバー不要）
+// 2026-10-03 みかさん「豆知識アプリと同じ時間にならないように」→ 声を出す練習なので、家で声を出せる夜19:30に（豆知識は朝7:30）
 async function setupDailyReminder() {
   if (!isNativeApp()) return;
   try {
@@ -4365,12 +4366,15 @@ async function setupDailyReminder() {
     const perm = await LN.requestPermissions();
     if (!perm || perm.display !== 'granted') return;
     const pending = await LN.getPending();
-    if (pending && pending.notifications && pending.notifications.some(n => Number(n.id) === 1)) return;
+    // 時刻を変えたときに古い予約（8:00）が残らないよう、同じ時刻の予約が無ければ消してから入れ直す
+    const same = pending && pending.notifications && pending.notifications.some(n => Number(n.id) === 1 && n.schedule && n.schedule.on && n.schedule.on.hour === 19 && n.schedule.on.minute === 30);
+    if (same) return;
+    try { await LN.cancel({ notifications: [{ id: 1 }] }); } catch (e) {}
     await LN.schedule({ notifications: [{
       id: 1,
       title: '今日の早口言葉 🎤',
       body: '1日1回、30秒だけ。今日のお題に挑戦しましょう',
-      schedule: { on: { hour: 8, minute: 0 }, allowWhileIdle: true }
+      schedule: { on: { hour: 19, minute: 30 }, allowWhileIdle: true }
     }] });
   } catch (e) { console.log('daily reminder skipped:', e); }
 }

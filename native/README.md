@@ -5,7 +5,7 @@
 ## 仕組み
 - `copy-www.sh` … リポ直下のPWAファイルを `www/` にコピーする（www/ はgit管理外・生成物）
 - Capacitor 8（SPM方式・CocoaPods不要）＋ @capacitor/local-notifications
-- ネイティブ価値: 毎朝8時「今日の早口言葉」ローカル通知（index.html内・ネイティブ実行時のみ発動）
+- ネイティブ価値: 毎晩19:30「今日の早口言葉」ローカル通知（2026-10-03 豆知識アプリの朝7:30と重ならないよう変更）（index.html内・ネイティブ実行時のみ発動）
 - Bundle ID: `com.experisent.hayakuchi`
 
 ## 本体を更新したらiOSに反映する手順
