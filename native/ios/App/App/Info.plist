@@ -72,7 +72,7 @@
 	<true/>
 	<!-- AdMob 本番AppID（2026-09-20 みかさん発行） -->
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-6657198955886954~8678719683</string>
+	<string>ca-app-pub-9419365117298069~7650152004</string>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>
