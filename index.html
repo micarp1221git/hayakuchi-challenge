@@ -1688,6 +1688,56 @@ body {
 body.has-ad{padding-bottom:calc(var(--ad-h,0px) + env(safe-area-inset-bottom,0px))}
 body.has-ad .bottom-nav{bottom:calc(var(--ad-h,0px) + env(safe-area-inset-bottom,0px));padding-bottom:6px}
 </style>
+<style id="kintsugi-repair">
+/* 金継ぎの直し（読みにくい文字・極小文字・色のずれ）2026-10-08 みかさんOK */
+/* 金継ぎ 修理デモ（早口言葉チャレンジ・2026-10-07）
+   本体は無改変。<head> の最後に貼れば同じ見た目になる。
+   色は元栓（:root）で当てる。ライト表示のときだけ効かせる。 */
+
+@media (prefers-color-scheme: light), (prefers-color-scheme: no-preference) {
+  :root {
+    /* ① チャレンジの赤を、色味はそのままで一段濃く（白文字の比 3.64 → 5.0） */
+    --tertiary: #BF4556;
+    --tertiary-dark: #AA3647;
+    --error: #BF4556;
+    /* ② 補足の灰色を一段濃く（比 4.47 → 4.79） */
+    --outline: #6E7280;
+    /* ③ オレンジ地の文字の黒を、本文の黒と同じ1色に */
+    --on-primary: #191C1E;
+  }
+  /* ④ まだ開いていない札・リセットの文字は、薄い線の色ではなく補足の灰色で */
+  .path-node.upcoming .path-node-text,
+  .btn-reset { color: var(--outline); }
+  /* ⑤ 鍵のかかった級のタブは、薄い地の上に濃い文字で（比 1.59 → 5.86） */
+  .level-tab.locked { color: var(--on-surface-variant); }
+  /* ⑥ 文字として使うオレンジは、オレンジの文字用の濃い茶色で（比 1.72・2.54 → 8.03） */
+  .nav-tab.active { color: var(--on-primary-alt); }
+  .path-node.selected .path-node-text,
+  .path-node.completed .path-node-text { color: var(--on-primary-alt) !important; }
+}
+
+/* ⑦ 下のタブとリセットの 10・12px を、ボタンの小さい段 13px に */
+.nav-tab-label,
+.nav-tab-center .nav-tab-label,
+.btn-reset { font-size: 13px; }
+/* 札の名前・「次のチャレンジ」・「今日のお題」は、小さな札の段 12px に揃える（「生麦生米生卵」が切れずに収まる幅を確保） */
+.today-card-label,
+.path-node-text,
+.path-node.current .path-node-text,
+.current-indicator { font-size: 12px; }
+.path-node-text { max-width: 76px; }
+
+/* ⑧ 「セット1」の見出しを、お題の下の文字と同じ段に（文字サイズ設定に合わせて伸び縮みする段） */
+.set-header-label,
+.share-toast { font-size: calc(12px * var(--fs)); }
+
+/* ⑨ 札の中の文字を、ふりがなと同じ段に。いま挑戦中の札は、お題の文字と同じ段に */
+.path-node-circle { font-size: 15.8px; }
+.path-node.current .path-node-circle { font-size: 24px; }
+
+/* ⑩ 角丸を3種（小8・面16・丸）に。カードの24pxを面の16pxへ */
+:root { --rounded-xl: 16px; }
+</style>
 </head>
 <body>
 
